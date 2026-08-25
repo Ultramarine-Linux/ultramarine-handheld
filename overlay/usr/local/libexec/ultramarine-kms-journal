@@ -1,0 +1,16 @@
+#!/bin/bash
+set -eu
+
+# Do not use a unit condition for DRM: it would permanently skip this debugger
+# if the vendor DRM device appears a moment after systemd evaluates the unit.
+for _ in $(seq 1 30); do
+    if [ -c /dev/dri/card0 ] && [ -c /dev/tty1 ]; then
+        exec /usr/bin/kmscon --vt=tty1 --login -- \
+            /usr/bin/journalctl -b -f -o short-monotonic
+    fi
+    sleep 1
+done
+
+logger -t ultramarine-kms-journal \
+    'KMS journal console unavailable: no /dev/dri/card0 or /dev/tty1'
+exit 1

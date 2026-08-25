@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+# SSH StrictModes requires root-owned key material even when the overlay was
+# staged by an unprivileged build user.
+chown root:root /root
+chmod 0700 /root
+install -d -o root -g root -m 0700 /root/.ssh
+chown root:root /root/.ssh/authorized_keys
+chmod 0600 /root/.ssh/authorized_keys
+chmod 0644 /etc/ssh/sshd_config.d/10-trimui-rescue.conf
+
+# NetworkManager refuses system keyfiles that retain the build user's ownership.
+chown root:root /etc/NetworkManager/system-connections/*.nmconnection
+chmod 0600 /etc/NetworkManager/system-connections/*.nmconnection

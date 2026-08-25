@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GADGET=/sys/kernel/config/usb_gadget/ultramarine
+CONFIG="$GADGET/configs/c.1"
+FUNCTION="$GADGET/functions/rndis.usb0"
+
+log() { printf '[trimui-usb-gadget] %s\n' "$*" >&2; }
+
+have_configfs() {
+    [[ -d /sys/kernel/config ]]
+}
+
+find_udc() {
+    local udc attempt
+    for attempt in {1..20}; do
+        for udc in /sys/class/udc/*; do
+            [[ -e "$udc" ]] || continue
+            basename "$udc"
+            return 0
+        done
+        sleep 0.5
+    done
+    return 1
+}
+
+unbind() {
+    [[ -e "$GADGET/UDC" ]] || return 0
+    if [[ -n "$(<"$GADGET/UDC")" ]]; then
+        printf '\n' > "$GADGET/UDC"
+    fi
+}
+
+remove_gadget() {
+    [[ -d "$GADGET" ]] || return 0
+    unbind
+    rm -f "$CONFIG/rndis.usb0"
+    rmdir "$FUNCTION" 2>/dev/null || true
+    rmdir "$CONFIG/strings/0x409" 2>/dev/null || true
+    rmdir "$CONFIG" 2>/dev/null || true
+    rmdir "$GADGET/strings/0x409" 2>/dev/null || true
+    rmdir "$GADGET" 2>/dev/null || true
+}
+
+start() {
+    have_configfs || { log 'configfs USB gadget support is unavailable'; exit 1; }
+    mkdir -p /sys/kernel/config
+    if ! mountpoint -q /sys/kernel/config; then
+        mount -t configfs configfs /sys/kernel/config
+    fi
+    [[ -d /sys/kernel/config/usb_gadget ]] || {
+        log 'configfs mounted but USB gadget support is unavailable'
+        exit 1
+    }
+
+    # These may be built into the vendor kernel rather than modules.
+    modprobe libcomposite 2>/dev/null || true
+    modprobe usb_f_rndis 2>/dev/null || true
+
+    local udc board_model board_compatible manufacturer board_serial serial
+    udc=$(find_udc) || {
+        log 'no USB Device Controller found; is the OTG/charging port connected as a device?'
+        exit 1
+    }
+
+    board_model=$(tr -d '\0' </proc/device-tree/model 2>/dev/null || true)
+    board_compatible=$(tr '\0' '\n' </proc/device-tree/compatible 2>/dev/null | head -n 1 || true)
+    board_model=${board_model:-unknown-board}
+    board_compatible=${board_compatible:-unknown-compatible}
+    manufacturer=${board_compatible%%,*}
+    manufacturer=${manufacturer:-unknown-vendor}
+    board_serial=
+    for arg in $(cat /proc/cmdline); do
+        case "$arg" in
+            androidboot.serialno=*) board_serial=${arg#androidboot.serialno=} ;;
+        esac
+    done
+    serial=${board_serial:-"ultramarine-$(cat /etc/machine-id 2>/dev/null || printf unknown)"}
+
+    remove_gadget
+    mkdir -p "$GADGET" "$GADGET/strings/0x409" "$CONFIG" \
+        "$CONFIG/strings/0x409" "$FUNCTION"
+
+    printf '0x1d6b' > "$GADGET/idVendor"
+    printf '0x0104' > "$GADGET/idProduct"
+    printf '0x0100' > "$GADGET/bcdDevice"
+    printf '0x0200' > "$GADGET/bcdUSB"
+    printf '%s' "$manufacturer" > "$GADGET/strings/0x409/manufacturer"
+    printf '%s USB Ethernet' "$board_model" > "$GADGET/strings/0x409/product"
+    printf '%s' "$serial" > "$GADGET/strings/0x409/serialnumber"
+
+    printf 'USB Ethernet' > "$CONFIG/strings/0x409/configuration"
+    printf '250' > "$CONFIG/MaxPower"
+    [[ -e "$FUNCTION/dev_addr" ]] && printf '02:00:00:00:00:01' > "$FUNCTION/dev_addr"
+    [[ -e "$FUNCTION/host_addr" ]] && printf '02:00:00:00:00:02' > "$FUNCTION/host_addr"
+    ln -s "$FUNCTION" "$CONFIG/rndis.usb0"
+    printf '%s' "$udc" > "$GADGET/UDC"
+    # Keep first access independent of NetworkManager/DHCP. The host can use
+    # a static 192.168.42.2/24 address on its USB Ethernet interface.
+    ip link set usb0 up
+    ip addr replace 192.168.42.1/24 dev usb0
+    log "manufacturer=$manufacturer model=$board_model compatible=$board_compatible RNDIS gadget bound to $udc"
+}
+
+case "${1:-start}" in
+    start) start ;;
+    stop) remove_gadget ;;
+    restart) remove_gadget; start ;;
+    *) log "usage: $0 {start|stop|restart}"; exit 2 ;;
+esac

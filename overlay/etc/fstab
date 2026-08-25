@@ -1,0 +1,2 @@
+# Direct-root policy: ask systemd-remount-fs to make p5 writable early.
+/dev/mmcblk0p5  /  ext4  defaults  0  1

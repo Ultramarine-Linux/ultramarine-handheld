@@ -1,0 +1,45 @@
+# mkosi and image-build outputs
+/build/
+# Generated root filesystems and disk images
+/ultramarine-rootfs/
+/image.raw
+*.img
+*.img.zst
+*.img.gz
+*.raw
+*.fex
+*.squashfs
+*.ext4
+*.cpio
+*.cpio.*
+
+# Board-owned vendor boot inputs are source artifacts, not build outputs.
+!board/trimui-smart-pro-s/partitions/*.img
+!board/trimui-smart-pro-s/partitions/*.fex
+
+# Local mkosi/package caches
+/.mkosi/
+/mkosi.cache/
+cache/
+mkosi.tools
+mkosi.tools.manifest
+mkosi.tools/bin
+/p4/mkosi.tools/
+/p4/mkosi.tools.manifest
+# Host/editor noise
+*.swp
+*.swo
+*~
+.direnv/
+references/
+
+# Secrets and machine-local configuration
+/overlay/etc/NetworkManager/system-connections/*.nmconnection
+!/overlay/etc/NetworkManager/system-connections/trimui-usb0.nmconnection
+*.key
+*.pem
+*.p12
+*.secret
+.env
+.env.*
+overlay/root/.ssh/

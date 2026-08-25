@@ -1,0 +1,18 @@
+[Unit]
+Description=Ultramarine KMS boot journal console
+# Start during system initialization without inheriting the normal
+# service-after-sysinit dependency. Do not add Before=basic.target: that
+# previously formed an unbreakable target ordering cycle.
+DefaultDependencies=no
+After=systemd-journald.service systemd-udevd.service systemd-remount-fs.service
+Wants=systemd-journald.service
+Conflicts=getty@tty1.service shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/ultramarine-kms-journal
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=sysinit.target

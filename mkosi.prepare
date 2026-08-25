@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install the proprietary Mali userspace as a matched, pinned artifact.
+# This commit's fbdev/arm64 libmali was proven against the vendor 5.15.147
+# mali_kbase.ko and the CSF firmware staged by overlay/.
+[ "${1:-final}" = "final" ] || exit 0
+
+commit=fe75f26365e6027bafdfe8c20359db04177f8f83
+url="https://github.com/knulli-cfw/mali-g57-sunxi-drivers/archive/${commit}.tar.gz"
+expected_libmali_sha256=c281fdb19a4384e463cdb6e3afefa7759774d0cf4cf44462fe61d5f14c3c3e91
+cache_dir="$SRCDIR/build/vendor-sources"
+archive="$cache_dir/mali-g57-sunxi-drivers-${commit}.tar.gz"
+workdir=$(mktemp -d)
+trap 'rm -rf "$workdir"' EXIT
+
+mkdir -p "$cache_dir"
+if [ ! -s "$archive" ]; then
+    curl --fail --location --retry 3 --output "$archive.tmp" "$url"
+    mv "$archive.tmp" "$archive"
+fi
+
+tar -xzf "$archive" -C "$workdir"
+src="$workdir/mali-g57-sunxi-drivers-${commit}/fbdev/arm64"
+test -f "$src/libmali.so.0.32.0"
+printf '%s  %s\n' "$expected_libmali_sha256" "$src/libmali.so.0.32.0" | sha256sum --check --status
+
+# The vendor package supplies EGL/GLES/GBM/OpenCL wrappers as one matched set.
+# Replace only the related library names after Fedora packages are installed.
+mkdir -p "$BUILDROOT/usr/lib"
+for name in \
+    libmali.so libmali.so.0 libmali.so.0.32.0 libmali.so.1 \
+    libEGL.so libEGL.so.1 libEGL.so.1.4.0 \
+    libGLESv1_CM.so libGLESv1_CM.so.1 libGLESv1_CM.so.1.1.0 \
+    libGLESv2.so libGLESv2.so.2 libGLESv2.so.2.1.0 \
+    libgbm.so libgbm.so.1 libgbm.so.1.0.0 \
+    libOpenCL.so libOpenCL.so.2 libOpenCL.so.2.1.0 \
+    libwayland-egl.so libwayland-egl.so.1 libwayland-egl.so.1.0.0 libwayland-egl.so.1.23.1; do
+    rm -f "$BUILDROOT/usr/lib/$name"
+done
+cp -a "$src/." "$BUILDROOT/usr/lib/"

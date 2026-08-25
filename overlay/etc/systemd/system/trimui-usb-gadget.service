@@ -1,0 +1,16 @@
+[Unit]
+Description=Ultramarine USB Ethernet gadget
+DefaultDependencies=no
+After=sys-kernel-config.mount systemd-modules-load.service
+Wants=sys-kernel-config.mount
+Before=sysinit.target network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/libexec/trimui-usb-gadget start
+ExecStop=/usr/local/libexec/trimui-usb-gadget stop
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,2 @@
+# A handheld should not block boot waiting for Wi-Fi/network-online.
+disable NetworkManager-wait-online.service

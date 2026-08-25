@@ -1,0 +1,15 @@
+[connection]
+id=TrimUI USB Ethernet
+uuid=4d88d6b1-1c4b-4f6b-9f11-7e4c2a4d8c42
+type=ethernet
+interface-name=usb0
+autoconnect=true
+
+[ethernet]
+
+[ipv4]
+method=shared
+address1=192.168.42.1/24
+
+[ipv6]
+method=disabled

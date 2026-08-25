@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+# mkosi applies distro presets before this final hook. Make service state
+# deterministic after every preset has had its say.
+systemctl enable trimui-usb-gadget.service
+systemctl enable serial-getty@ttyAS0.service
+systemctl enable wpa_supplicant.service
+# Fedora's sshd pulls in sshd-keygen.target on first service start, producing
+# a unique host identity on each flashed device.
+systemctl enable sshd.service
+systemctl enable systemd-resolved.service
+# Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
+# the explicit boot-journal debugger below.
+systemctl mask kmscon.service kmsconvt@.service
+systemctl enable ultramarine-kms-journal.service
+systemctl mask NetworkManager-wait-online.service
+# This appliance is preconfigured; firstboot would wait for interactive input
+# that the handheld cannot provide during early bring-up.
+systemctl mask systemd-firstboot.service
+
+# systemd-resolved owns the dynamic resolver view.
+rm -f /etc/resolv.conf
+ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf

@@ -1,0 +1,20 @@
+#!/bin/ash
+# Raw ext4 p4 bootstrap, launched by p3 when p2 selects root=p4 init=/init.
+set -u
+
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+exec </dev/ttyAS0 >/dev/ttyAS0 2>&1
+
+mkdir -p /sysroot
+if ! mount -t ext4 -o rw /dev/mmcblk0p5 /sysroot; then
+    echo "p4: cannot mount Ultramarine root on mmcblk0p5"
+    exec /bin/ash
+fi
+
+mkdir -p /sysroot/{dev,proc,sys}
+mount --move /dev /sysroot/dev
+mount --move /proc /sysroot/proc
+mount --move /sys /sysroot/sys
+exec switch_root /sysroot /sbin/init

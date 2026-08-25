@@ -1,0 +1,15 @@
+#!/bin/sh
+
+case $1 in
+    start)
+      modprobe aic8800_fdrv
+      modprobe aic8800_btlpm
+      ;;
+  stop)
+      rmmod aic8800_fdrv
+      rmmod aic8800_btlpm
+      ;;
+esac
+
+exit 0
+
