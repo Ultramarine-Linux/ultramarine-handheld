@@ -5,7 +5,7 @@ set -eu
 # if the vendor DRM device appears a moment after systemd evaluates the unit.
 for _ in $(seq 1 30); do
     if [ -c /dev/dri/card0 ] && [ -c /dev/tty1 ]; then
-        exec /usr/bin/kmscon --vt=tty1 --login -- \
+        exec /usr/bin/kmscon --vt=tty1 --login --dpms-timeout 0 -- \
             /usr/bin/journalctl -b -f -o short-monotonic
     fi
     sleep 1

@@ -75,6 +75,13 @@ until the unchanged compact layout has booted successfully. After that test,
 p5 may be enlarged to the remaining card capacity and its ext4 filesystem
 resized.
 
+## Hardware I/O
+
+The verified input, rumble, fan, power-button, display, USB, serial, and
+battery details are documented in:
+
+[`board/trimui-smart-pro-s/IO.md`](board/trimui-smart-pro-s/IO.md)
+
 ## usb gadget mode
 
 The p5 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
@@ -97,3 +104,34 @@ Classic OSTree/bootc deployments work without composefs; composefs is deferred
 because the vendor kernel lacks the required EROFS/fs-verity support.
 
 better immutable might work if we use hermetic root, 
+
+## Compositor bring-up
+
+The TrimUI Smart Pro S uses the vendor Mali G57 userspace from Knulli rather
+than Mesa/Panfrost. The Vulkan loader needs the board ICD manifest:
+
+```text
+/usr/share/vulkan/icd.d/mali_icd.json
+```
+
+The vendor stack is otherwise provided by `mkosi.prepare` and the board
+overlay: `libmali.so`, vendor GBM/EGL/GLES, `mali_kbase.ko`, and CSF firmware.
+Without the ICD manifest, `vulkaninfo` reports `Found no drivers`; with it,
+`vkcube` works.
+
+The compositor tests were performed on the live device using a PAM/logind
+session bound to tty1 and the DRM backend:
+
+| Compositor | Result | Notes |
+|---|---:|---|
+| Cage | works | Initializes sunxi-drm, ARM EGL, Mali-G57 GLES, and DSI-1; kiosk model is a poor fit for OSDs/layer-shell UI. |
+| Sway | works | Best current base for a riced handheld shell; use custom config and launch UI/OSD components instead of swaybar. |
+| Labwc | works | Reached DRM successfully; needs a proper config/startup command, but is a good lightweight layer-shell-capable alternative. |
+| Gamescope | fails | Vulkan ICD is found, but Gamescope rejects the Mali physical device in its DRM backend. The ICD lacks `VK_EXT_physical_device_drm`. |
+| Miriway | fails | Mir's graphics modules require GBM/EGL symbols absent from the vendor blob: `gbm_surface_create_with_modifiers2` and `eglCreatePlatformWindowSurface`. |
+
+Cage and Labwc were tested with the vendor GBM/EGL/GLES path. Cage can run a
+startup command such as `swaybg`, but its kiosk model is not suitable as the
+main shell if the device needs persistent OSDs. Sway is the current default
+direction; Labwc remains worth developing as a lighter configured-shell
+alternative.

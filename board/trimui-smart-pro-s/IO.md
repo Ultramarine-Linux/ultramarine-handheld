@@ -1,0 +1,231 @@
+# TrimUI Smart Pro S hardware I/O
+
+This documents the verified Knulli reference behavior and the current
+Ultramarine implementation.
+
+## Integrated controls and rumble
+
+The Smart Pro S controller is not exposed directly by the two controller MCUs.
+The userspace daemon reads the vendor serial endpoints:
+
+```text
+/dev/ttyAS5  left controller half
+/dev/ttyAS7  right controller half
+```
+
+and publishes one uinput device:
+
+```text
+TRIMUI Smart Pro S Controller
+```
+
+The source-backed daemon lives in the `korewaChino/Trimui_Inputd` fork. It
+contains runtime stick calibration (startup center learning, filtering,
+adaptive deadzone, span learning, and parked-stick recentering), plus the
+Smart Pro S `pwm-vibrator` force-feedback backend. The current development
+image temporarily carries the tested ARM64 daemon as a separate board
+`ExtraTrees` input until the fork is integrated as a normal source build.
+
+The physical motor is a kernel input device, not a GPIO userspace motor:
+
+```text
+/dev/input/by-path/platform-soc@3000000:pwm_vibrator-event
+/sys/class/thermal/cooling_device0  pwm-fan
+```
+
+FF applications can address the vibrator through its `event` node. The
+input daemon forwards FF upload/play/erase requests from its virtual gamepad
+to that kernel endpoint. Knulli's reference implementation also exposes
+this as a separate `pwm-vibrator` input device.
+
+## Audio
+
+The vendor kernel exposes the internal codec through ordinary ALSA:
+
+```text
+card 0: audiocodec
+playback: digital audio playback, device 0
+capture:  digital audio capture, device 0
+```
+
+The kernel-side codec path is therefore usable by PipeWire. Knulli runs
+PipeWire/WirePlumber above ALSA, but explicitly disables ACP and UCM for this
+board and configures the built-in speaker node directly. Its relevant policy
+is:
+
+```text
+ALSA card/device: audiocodec, device 0
+format:           S16LE
+rate:             48000 Hz
+channels:        2
+soft mixer:       enabled
+mmap:             disabled for the speaker node
+```
+
+That is the sensible Ultramarine approach too: use PipeWire for the session
+and routing layer, while keeping an explicit WirePlumber ALSA rule for the
+vendor `audiocodec` card instead of assuming desktop UCM profiles exist.
+PipeWire should be tested against the capture path separately; playback is the
+important initial target.
+
+The hardware mixer remains available through ALSA controls. Knulli's volume
+keys ultimately adjust the PipeWire system volume, while low-level board
+helpers use `amixer` for codec-specific controls such as `DAC` and
+`DACL DACR Swap`. The vendor kernel and codec driver remain unchanged.
+
+Useful first-pass checks once the packages are installed are:
+
+```bash
+cat /proc/asound/cards
+aplay -l
+arecord -l
+wpctl status
+pw-play --target <sink> test.wav
+```
+
+## Brightness and display power
+
+The live panel uses the standard raw backlight interface:
+
+```text
+/sys/class/backlight/backlight0/brightness
+/sys/class/backlight/backlight0/max_brightness   # 255
+/sys/class/backlight/backlight0/actual_brightness
+/sys/class/backlight/backlight0/bl_power
+```
+
+Knulli's `knulli-brightness` helper discovers the first backlight directory,
+uses a minimum of 1% (with a raw floor of 3), and supports percentage values,
+`+/-` changes, cycling, dimming, and display off/on. It stores the previous
+brightness under `/var/run/` while dimmed or off and optionally updates the
+RGB lighting service. Its fallback path uses `/sys/class/graphics/fb0/blank`
+when no backlight device exists.
+
+For this board, direct development control is simply:
+
+```bash
+cat /sys/class/backlight/backlight0/brightness
+echo 128 > /sys/class/backlight/backlight0/brightness
+```
+
+Applications should discover `/sys/class/backlight/*` rather than assume the
+`backlight0` name. The KMS console's DPMS timeout is separately disabled with
+`--dpms-timeout 0`; that controls inactivity blanking, not the backlight level.
+
+## CPU frequency and governor control
+
+The vendor 5.15 kernel exposes two cpufreq policies:
+
+```text
+policy0: little cluster, 408000..1416000 kHz
+policy4: big cluster,    408000..2160000 kHz
+```
+
+The live driver is `cpufreq-dt`. Available governors on the current image are:
+
+```text
+conservative ondemand userspace powersave performance schedutil
+```
+
+Knulli applies one governor to every policy. Its reference startup logic
+prefers the saved setting, otherwise `schedutil`, and finally `performance`.
+It writes:
+
+```text
+/sys/devices/system/cpu/cpufreq/policy*/scaling_governor
+```
+
+Knulli's `knulli-overclock` helper controls the per-policy ceiling through:
+
+```text
+/sys/devices/system/cpu/cpufreq/policy*/scaling_max_freq
+```
+
+It enumerates each policy's `scaling_available_frequencies`, clamps the
+requested frequency to a value supported by every policy, and restores a
+board-specific default when requested. On this board the policy tables must
+be treated independently: the big cluster can reach 2160000 kHz while the
+little cluster tops out at 1416000 kHz.
+
+Useful development commands on the running image are:
+
+```bash
+# inspect policies and governors
+for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    echo "[$p]"
+    cat "$p/scaling_available_frequencies" 2>/dev/null
+    cat "$p/scaling_governor" "$p/scaling_min_freq" "$p/scaling_max_freq"
+done
+
+# set a governor across all policies
+for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    echo schedutil > "$p/scaling_governor"
+done
+
+# set policy ceilings, using values present in each policy's table
+echo 1416000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+echo 2160000 > /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+```
+
+Ultramarine currently exposes the kernel controls but does not yet ship the
+Knulli governor/frequency policy helpers. A future systemd service should
+apply governor and frequency policy after cpufreq policies appear, and should
+leave thermal cooling in charge of emergency throttling.
+
+## Fan and thermal control
+
+Knulli's A527 reference starts `knulli-fan-control` from
+`board/allwinner/a527/fsoverlay/etc/init.d/S06fan-control-daemon`. For the
+Smart Pro S it writes the thermal cooling state:
+
+```text
+/sys/class/thermal/cooling_device0/cur_state
+```
+
+with a range of `0..31`, using the hottest `cpu*`/`cluster*` thermal zone.
+Its default temperature ramp is:
+
+```text
+below 30 C: fan off
+35 C:       minimum ramp point
+80 C:       maximum ramp point
+```
+
+It polls every two seconds, debounces fan-off for three loops, and supports
+`quiet`, `normal`, and `performance` multipliers. The current Ultramarine
+image exposes the same kernel thermal/fan interface but does not yet ship a
+fan policy daemon; this is the reference behavior to reproduce.
+
+## Power, display, and other I/O
+
+- `axp2202-pek` is `/dev/input/event2`; systemd-logind watches it as the
+  hardware power key. The image overrides logind so a short press is ignored
+  and a long press powers off.
+- `pwm-vibrator` is `/dev/input/event1` on the current boot, but applications
+  should use its `/dev/input/by-path/` link rather than the event number.
+- The KMS journal console uses kmscon with `--dpms-timeout 0`; the default
+  600-second screen blanking is disabled.
+- Early USB ConfigFS RNDIS uses dynamic UDC discovery and identifies the
+  board from device-tree/runtime identity; it does not hardcode the
+  `sun55iw3` model as a controller selector.
+- A serial getty is enabled on `ttyAS0`; the controller daemon uses `ttyAS5`
+  and `ttyAS7`.
+- `axp2202-battery` and `axp2202-usb` provide battery/charger state through
+  `/sys/class/power_supply/`. Vendor boot0/boot-package/p3 remain intact for
+  charger mode, boot indicators, panel bring-up, and other pre-userspace
+  behavior.
+
+## USB gadget
+
+The p5 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
+gadget port. It assigns the device `192.168.42.1/24`; this is the preferred
+bring-up path for SSH and logs. The top USB-C port is host-only.
+
+The gadget service discovers the actual UDC through `/sys/class/udc/` and
+derives descriptor identity from the live device tree and board serial rather
+than hardcoding a SoC/controller name or image machine-id.
+
+## Serial console
+
+A serial getty is enabled on `ttyAS0`, but physical UART access requires the
+debug header. The controller daemon uses `ttyAS5` and `ttyAS7` independently.

@@ -10,6 +10,7 @@ systemctl enable wpa_supplicant.service
 # a unique host identity on each flashed device.
 systemctl enable sshd.service
 systemctl enable systemd-resolved.service
+systemctl enable trimui-inputd.service
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
 # the explicit boot-journal debugger below.
 systemctl mask kmscon.service kmsconvt@.service
