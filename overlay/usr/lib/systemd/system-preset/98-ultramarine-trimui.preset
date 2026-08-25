@@ -1,4 +1,5 @@
 enable trimui-usb-gadget.service
 enable serial-getty@ttyAS0.service
+enable serial-getty@ttyGS0.service
 enable wpa_supplicant.service
 enable sshd.service

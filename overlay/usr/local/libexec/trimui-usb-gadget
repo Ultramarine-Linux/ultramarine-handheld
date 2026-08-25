@@ -3,7 +3,8 @@ set -euo pipefail
 
 GADGET=/sys/kernel/config/usb_gadget/ultramarine
 CONFIG="$GADGET/configs/c.1"
-FUNCTION="$GADGET/functions/rndis.usb0"
+RNDIS_FUNCTION="$GADGET/functions/rndis.usb0"
+ACM_FUNCTION="$GADGET/functions/acm.usb0"
 
 log() { printf '[trimui-usb-gadget] %s\n' "$*" >&2; }
 
@@ -35,7 +36,9 @@ remove_gadget() {
     [[ -d "$GADGET" ]] || return 0
     unbind
     rm -f "$CONFIG/rndis.usb0"
-    rmdir "$FUNCTION" 2>/dev/null || true
+    rm -f "$CONFIG/acm.usb0"
+    rmdir "$RNDIS_FUNCTION" 2>/dev/null || true
+    rmdir "$ACM_FUNCTION" 2>/dev/null || true
     rmdir "$CONFIG/strings/0x409" 2>/dev/null || true
     rmdir "$CONFIG" 2>/dev/null || true
     rmdir "$GADGET/strings/0x409" 2>/dev/null || true
@@ -56,6 +59,7 @@ start() {
     # These may be built into the vendor kernel rather than modules.
     modprobe libcomposite 2>/dev/null || true
     modprobe usb_f_rndis 2>/dev/null || true
+    modprobe usb_f_acm 2>/dev/null || true
 
     local udc board_model board_compatible manufacturer board_serial serial
     udc=$(find_udc) || {
@@ -79,7 +83,7 @@ start() {
 
     remove_gadget
     mkdir -p "$GADGET" "$GADGET/strings/0x409" "$CONFIG" \
-        "$CONFIG/strings/0x409" "$FUNCTION"
+        "$CONFIG/strings/0x409" "$RNDIS_FUNCTION" "$ACM_FUNCTION"
 
     printf '0x1d6b' > "$GADGET/idVendor"
     printf '0x0104' > "$GADGET/idProduct"
@@ -89,11 +93,12 @@ start() {
     printf '%s USB Ethernet' "$board_model" > "$GADGET/strings/0x409/product"
     printf '%s' "$serial" > "$GADGET/strings/0x409/serialnumber"
 
-    printf 'USB Ethernet' > "$CONFIG/strings/0x409/configuration"
+    printf 'USB Ethernet + Serial Console' > "$CONFIG/strings/0x409/configuration"
     printf '250' > "$CONFIG/MaxPower"
-    [[ -e "$FUNCTION/dev_addr" ]] && printf '02:00:00:00:00:01' > "$FUNCTION/dev_addr"
-    [[ -e "$FUNCTION/host_addr" ]] && printf '02:00:00:00:00:02' > "$FUNCTION/host_addr"
-    ln -s "$FUNCTION" "$CONFIG/rndis.usb0"
+    [[ -e "$RNDIS_FUNCTION/dev_addr" ]] && printf '02:00:00:00:00:01' > "$RNDIS_FUNCTION/dev_addr"
+    [[ -e "$RNDIS_FUNCTION/host_addr" ]] && printf '02:00:00:00:00:02' > "$RNDIS_FUNCTION/host_addr"
+    ln -s "$RNDIS_FUNCTION" "$CONFIG/rndis.usb0"
+    ln -s "$ACM_FUNCTION" "$CONFIG/acm.usb0"
     printf '%s' "$udc" > "$GADGET/UDC"
     # Keep first access independent of NetworkManager/DHCP. The host can use
     # a static 192.168.42.2/24 address on its USB Ethernet interface.

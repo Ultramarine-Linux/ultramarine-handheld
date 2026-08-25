@@ -16,6 +16,7 @@
 # Board-owned vendor boot inputs are source artifacts, not build outputs.
 !board/trimui-smart-pro-s/partitions/*.img
 !board/trimui-smart-pro-s/partitions/*.fex
+!board/trimui-smart-pro-s/boot-artifacts/vendor-p3-ramdisk.cpio.gz
 
 # Local mkosi/package caches
 /.mkosi/

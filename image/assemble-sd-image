@@ -8,8 +8,8 @@ set -euo pipefail
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 build="$project/build"
 rootfs="$build/ultramarine-rootfs.ext4"
-env="$build/env-direct-root.img"
-vendor_boot="$project/board/trimui-smart-pro-s/partitions/vendor-boot.img"
+env="$build/env.img"
+p3_image="$build/ultramarine-p3.img"
 p4_image="$build/ramdisk-p4.img"
 boot0="$project/board/trimui-smart-pro-s/partitions/boot0.img"
 boot_package="$project/board/trimui-smart-pro-s/partitions/boot_package.fex"
@@ -18,7 +18,7 @@ repart="$project/image/repart.d"
 assets="$build/sd-image-assets"
 out="$build/ultramarine-trimui-6g.raw"
 
-for input in "$rootfs" "$env" "$vendor_boot" "$p4_image" "$boot0" "$boot_package" "$seed"; do
+for input in "$rootfs" "$env" "$p3_image" "$p4_image" "$boot0" "$boot_package" "$seed"; do
     test -e "$input" || { echo "missing required input: $input" >&2; exit 1; }
 done
 
@@ -29,12 +29,19 @@ mkdir -p "$assets/p1-minimal/boot"
 # SquashFS. The complete board-owned source tree is retained for recovery
 # image profiles.
 p1_template="$project/board/trimui-smart-pro-s/boot-resource"
-for path in adjtime.data bat bootlogo.bmp knulli-boot.conf partitions; do
+for path in adjtime.data bat bootlogo.bmp partitions; do
     cp -a "$p1_template/$path" "$assets/p1-minimal/"
 done
 for path in autoresize firmware.sig knulli.board knulli.board.capability; do
     cp -a "$p1_template/boot/$path" "$assets/p1-minimal/boot/"
 done
+
+# p1 carries the updater's staged environment payload. Generate it from the
+# same canonical source as raw p2 so an update cannot restore stale partition
+# names or boot arguments.
+install -m 0644 "$env" "$assets/p1-minimal/partitions/env.img"
+install -m 0644 "$project/board/trimui-smart-pro-s/trimui-linux.env" \
+    "$assets/p1-minimal/partitions/env.txt"
 
 # p4 is a raw ext4 bootstrap root, block-copied after repart creates its slot.
 # It deliberately uses the legacy-compatible ext4 features checked above.
@@ -64,7 +71,7 @@ sudo systemd-repart \
 # Repart creates blank raw p2/p3/p4 slots; install their known-good payloads.
 # Starts are exact MiB boundaries: p2=1060, p3=1076, p4=1172 MiB.
 dd if="$env" of="$out" bs=1M seek=1060 conv=notrunc status=none
-dd if="$vendor_boot" of="$out" bs=1M seek=1076 conv=notrunc status=none
+dd if="$p3_image" of="$out" bs=1M seek=1076 conv=notrunc status=none
 dd if="$p4_image" of="$out" bs=1M seek=1172 conv=notrunc status=none
 
 # Allwinner ROM-visible raw regions, outside GPT partitions.
@@ -97,7 +104,7 @@ trap - EXIT
 # filesystem integrity (p4 ownership is deliberately normalized above).
 sfdisk --verify "$out" >/dev/null
 cmp -s "$env" <(dd if="$out" bs=512 skip=2170880 count=256 status=none)
-cmp -s "$vendor_boot" <(dd if="$out" bs=512 skip=2203648 count=196608 status=none)
+cmp -s "$p3_image" <(dd if="$out" bs=512 skip=2203648 count=196608 status=none)
 cmp -s "$assets/boot0.img" <(dd if="$out" bs=512 skip=256 count=136 status=none)
 cmp -s "$assets/boot_package.fex" <(dd if="$out" bs=512 skip=32800 count=3424 status=none)
 

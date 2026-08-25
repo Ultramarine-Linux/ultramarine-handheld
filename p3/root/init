@@ -1,0 +1,36 @@
+#!/bin/ash
+# Controlled p3 early userspace. The rest of the vendor ramdisk is retained by
+# p3/build-p3, including charger-mode binaries, libraries, and kernel modules.
+set -u
+
+LOG_MOUNT=/boot-resource
+LOG_FILE="$LOG_MOUNT/p3-boot.log"
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+
+mkdir -p "$LOG_MOUNT"
+mount -t vfat -o rw /dev/mmcblk0p1 "$LOG_MOUNT" 2>/dev/null || true
+: >"$LOG_FILE" 2>/dev/null || true
+log() {
+    printf '[p3] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true
+}
+
+log 'init started'
+log "cmdline: $(cat /proc/cmdline 2>/dev/null || printf unavailable)"
+log 'mounting p4 /dev/mmcblk0p4'
+
+mkdir -p /p4
+if ! mount -t ext4 -o rw /dev/mmcblk0p4 /p4; then
+    log 'cannot mount p4'
+    exec /bin/ash
+fi
+
+if [ ! -x /p4/init ]; then
+    log 'p4 /init is missing or not executable'
+    exec /bin/ash
+fi
+
+log 'switching to p4 /init'
+exec switch_root /p4 /init

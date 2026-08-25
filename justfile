@@ -55,6 +55,11 @@ ext4-rootfs: rootfs
     e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
     stat -c '%n %s bytes' {{build_dir}}/ultramarine-rootfs.ext4
 
+# Build p3 as a controlled Android boot-image v0 carrier: retained vendor
+# kernel plus the minimal p4-handoff ramdisk.
+p3:
+    {{project}}/p3/build-p3
+
 # Build p4 as the 512 MiB raw ext4 bootstrap root launched by p3.
 p4:
     mkosi --directory={{project}}/p4 --force
@@ -64,7 +69,7 @@ p4:
 
 # Assemble the compact 6 GiB SD image. It reserves raw Allwinner boot slots,
 # lets systemd-repart create p1-p5, then installs fixed binary payloads.
-sd-image:
+sd-image: env p3 p4 ext4-rootfs
     {{project}}/image/assemble-sd-image
 
 # Write env.img to an explicitly supplied environment partition.

@@ -5,6 +5,7 @@ set -euo pipefail
 # deterministic after every preset has had its say.
 systemctl enable trimui-usb-gadget.service
 systemctl enable serial-getty@ttyAS0.service
+systemctl enable serial-getty@ttyGS0.service
 systemctl enable wpa_supplicant.service
 # Fedora's sshd pulls in sshd-keygen.target on first service start, producing
 # a unique host identity on each flashed device.
