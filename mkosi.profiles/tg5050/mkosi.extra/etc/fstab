@@ -1,0 +1,2 @@
+# First p4-root experiment: p3 mounts p4 as / and starts /sbin/init there.
+/dev/mmcblk0p4  /  ext4  defaults  0  1

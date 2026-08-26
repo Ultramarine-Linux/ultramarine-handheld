@@ -1,0 +1,15 @@
+# Stock TG5050-compatible SD layout. Raw boot0/SPL and boot package occupy
+# fixed ROM/vendor offsets before the GPT's first usable LBA.
+label: gpt
+label-id: AB6F3888-569A-4926-9668-80941DCB40BC
+unit: sectors
+first-lba: 73728
+last-lba: 15269854
+sector-size: 512
+
+/dev/loop0p1 : start=73728, size=65536, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E45, name="boot-resource", attrs="GUID:63"
+/dev/loop0p2 : start=139264, size=32768, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E46, name="env", attrs="GUID:63"
+/dev/loop0p3 : start=172032, size=196608, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E47, name="boot", attrs="GUID:63"
+/dev/loop0p4 : start=368640, size=4194304, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E48, name="rootfs", attrs="GUID:63"
+/dev/loop0p5 : start=4562944, size=196608, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E49, name="boot", attrs="GUID:63"
+/dev/loop0p6 : start=4759552, size=10510303, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, uuid=A0085546-4166-744A-A353-FCA9272B8E4A, name="UDISK", attrs="GUID:63"

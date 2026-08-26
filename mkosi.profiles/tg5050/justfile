@@ -1,0 +1,38 @@
+set dotenv-load := false
+
+profile := "tg5050"
+profile_dir := justfile_directory()
+project := profile_dir / "../.."
+build_dir := project / "build"
+env_source := profile_dir / "board/stock-sd.env"
+env_image := build_dir / "env.img"
+
+# Build the board's 128 KiB U-Boot environment image.
+env:
+    mkdir -p {{build_dir}}
+    mkenvimage -s 0x20000 -p 0x00 -o {{env_image}} {{env_source}}
+    test "$(stat -c %s {{env_image}})" -eq 131072
+    sha256sum {{env_image}}
+
+# Build the TG5050 p5 userspace.
+rootfs:
+    mkosi --directory={{project}} --profile={{profile}} --force
+
+# Package the rootfs tree as the p5 ext4 artifact.
+rootfs-image: rootfs
+    rm -f {{build_dir}}/ultramarine-rootfs.ext4
+    truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
+    sudo mkfs.ext4 -F -L ULTRAMARINE -d {{build_dir}}/ultramarine-rootfs {{build_dir}}/ultramarine-rootfs.ext4
+    sudo e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
+
+# Build the p4 early-root artifact.
+initrd:
+    mkosi --directory={{profile_dir}}/initrd --force
+    e2fsck -fn {{build_dir}}/initrd-root.ext4
+
+# Assemble the complete SD-card image from the selected profile's artifacts.
+image: env initrd rootfs-image
+    {{profile_dir}}/image/assemble-sd-image
+
+summary:
+    mkosi --directory={{project}} --profile={{profile}} summary

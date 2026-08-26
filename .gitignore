@@ -14,9 +14,9 @@
 *.cpio.*
 
 # Board-owned vendor boot inputs are source artifacts, not build outputs.
-!board/trimui-smart-pro-s/partitions/*.img
-!board/trimui-smart-pro-s/partitions/*.fex
-!board/trimui-smart-pro-s/boot-artifacts/vendor-p3-ramdisk.cpio.gz
+!mkosi.profiles/tg5050/board/partitions/*.img
+!mkosi.profiles/tg5050/board/partitions/*.fex
+!mkosi.profiles/tg5050/board/boot-artifacts/vendor-p3-ramdisk.cpio.gz
 
 # Local mkosi/package caches
 /.mkosi/
@@ -25,8 +25,8 @@ cache/
 mkosi.tools
 mkosi.tools.manifest
 mkosi.tools/bin
-/p4/mkosi.tools/
-/p4/mkosi.tools.manifest
+/mkosi.profiles/tg5050/initrd/mkosi.tools/
+/mkosi.profiles/tg5050/initrd/mkosi.tools.manifest
 # Host/editor noise
 *.swp
 *.swo
@@ -35,12 +35,12 @@ mkosi.tools/bin
 references/
 
 # Secrets and machine-local configuration
-/overlay/etc/NetworkManager/system-connections/*.nmconnection
-!/overlay/etc/NetworkManager/system-connections/trimui-usb0.nmconnection
+/mkosi.profiles/tg5050/mkosi.extra/etc/NetworkManager/system-connections/*.nmconnection
+!/mkosi.profiles/tg5050/mkosi.extra/etc/NetworkManager/system-connections/trimui-usb0.nmconnection
 *.key
 *.pem
 *.p12
 *.secret
 .env
 .env.*
-overlay/root/.ssh/
+mkosi.profiles/tg5050/mkosi.extra/root/.ssh/

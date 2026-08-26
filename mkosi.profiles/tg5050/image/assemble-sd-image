@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Build a compact 6 GiB TrimUI Smart Pro S SD image.
+#
+# GPT p1-p5 are created by systemd-repart after a seed GPT reserves the raw
+# Allwinner boot region. boot0/SPL and boot_package remain fixed raw slots.
+set -euo pipefail
+
+profile=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+project=$(cd -- "$profile/../.." && pwd)
+build="$project/build"
+rootfs="$build/ultramarine-rootfs.ext4"
+env="$build/env.img"
+# p1-p3 payloads are stock. Only the raw placement follows the proven Knulli
+# SD layout: boot0/SPL at sector 256 and boot_package at sector 32800.
+p3_image="$profile/board/vendor/stock/p3-kernel-container.img"
+boot0="$profile/board/vendor/stock/boot0.img"
+boot_package="$profile/board/vendor/stock/boot-package.fex"
+seed="$profile/image/layout-6g-p4-rootfs.seed.sfdisk"
+repart="$profile/image/repart-p4-rootfs"
+assets="$build/sd-image-assets"
+out="$build/ultramarine-trimui-6g.raw"
+
+for input in "$rootfs" "$env" "$p3_image" "$boot0" "$boot_package" "$seed"; do
+    test -e "$input" || { echo "missing required input: $input" >&2; exit 1; }
+done
+
+rm -rf "$assets"
+mkdir -p "$assets/p1-minimal"
+
+# p1 mirrors stock's boot-resource partition exactly: vendor boot/battery/logo
+# assets only. It intentionally contains neither Knulli files nor staged
+# partition/update payloads.
+cp -a "$profile/board/vendor/stock/boot-resource/." "$assets/p1-minimal/"
+
+# p4 is the complete ext4 systemd root for this first experiment.
+
+# First-class fixed raw boot artifacts, sourced from the board tree.
+cp -a "$boot0" "$assets/boot0.img"
+cp -a "$boot_package" "$assets/boot_package.fex"
+
+# The image remains sparse until populated; its apparent size is 6 GiB.
+rm -f "$out"
+truncate -s 6G "$out"
+sfdisk "$out" < "$seed" >/dev/null
+
+# p4 starts at 1180 MiB. The 8 MiB alignment gap gives repart enough room to
+# create the fixed p1-p3 prefix without changing p4's final slot.
+dd if="$rootfs" of="$out" bs=1M seek=1180 conv=notrunc status=none
+
+sudo systemd-repart \
+    --offline=no \
+    --empty=allow \
+    --copy-source="$assets" \
+    --image="$out" \
+    --definitions="$repart" \
+    --dry-run=no
+
+# Repart creates blank raw p2/p3 slots; install their known-good payloads.
+# Starts are exact MiB boundaries: p2=1060, p3=1076.
+dd if="$env" of="$out" bs=1M seek=1060 conv=notrunc status=none
+dd if="$p3_image" of="$out" bs=1M seek=1076 conv=notrunc status=none
+
+# Allwinner ROM-visible raw regions, outside GPT partitions.
+dd if="$assets/boot0.img" of="$out" bs=512 seek=256 conv=notrunc status=none
+dd if="$assets/boot_package.fex" of="$out" bs=512 seek=32800 conv=notrunc status=none
+
+# Grow the prebuilt 2 GiB p4 filesystem to the compact image's remaining
+# capacity. Normalize ownership after mkosi's rootless build.
+loop=$(sudo losetup --find --show --partscan "$out")
+m4=$(mktemp -d)
+cleanup() {
+    sudo umount "$m4" 2>/dev/null || true
+    rmdir "$m4" 2>/dev/null || true
+    sudo losetup -d "$loop" 2>/dev/null || true
+}
+trap cleanup EXIT
+sudo e2fsck -fy "${loop}p4" >/dev/null
+sudo resize2fs "${loop}p4" >/dev/null
+sudo e2fsck -fn "${loop}p4" >/dev/null
+sudo mount "${loop}p4" "$m4"
+sudo chown -hR root:root "$m4"
+sync
+sudo umount "$m4"
+rmdir "$m4"
+sudo losetup -d "$loop"
+trap - EXIT
+
+# Structural checks: GPT, fixed raw slots, p2/p3 byte identity, and p4
+# filesystem integrity (p4 ownership is deliberately normalized above).
+sfdisk --verify "$out" >/dev/null
+cmp -s "$env" <(dd if="$out" bs=512 skip=2170880 count=256 status=none)
+cmp -s "$p3_image" <(dd if="$out" bs=512 skip=2203648 count=196608 status=none)
+cmp -s "$assets/boot0.img" <(dd if="$out" bs=512 skip=256 count=136 status=none)
+cmp -s "$assets/boot_package.fex" <(dd if="$out" bs=512 skip=32800 count=3424 status=none)
+
+sha256sum "$out"
+stat -c '%n %s bytes (apparent)' "$out"
+du -h "$out"

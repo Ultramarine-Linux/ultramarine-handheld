@@ -23,7 +23,8 @@ p3 also carries vendor early userspace, modules, and charger-related `healthd` s
 
 ## Source inputs vs. build outputs
 
-Board-owned vendor inputs live under `board/trimui-smart-pro-s/`:
+Board-owned vendor inputs and profile-local overlays live under
+`mkosi.profiles/tg5050/`:
 
 ```text
 boot-resource/             minimal vendor/update resources for p1
@@ -40,10 +41,8 @@ Requirements include `mkosi`, `systemd-repart`, `sfdisk`, `mkenvimage`,
 for loop devices and filesystem resizing inside the output image.
 
 ```bash
-just ext4-rootfs
-just p4
-just direct-root-env
-just sd-image
+just profile=tg5050 env initrd rootfs-image
+just profile=tg5050 image
 ```
 
 The final command verifies GPT structure and byte identity for boot0, the boot
@@ -80,7 +79,7 @@ resized.
 The verified input, rumble, fan, power-button, display, USB, serial, and
 battery details are documented in:
 
-[`board/trimui-smart-pro-s/IO.md`](board/trimui-smart-pro-s/IO.md)
+[`mkosi.profiles/tg5050/board/IO.md`](mkosi.profiles/tg5050/board/IO.md)
 
 ## usb gadget mode
 
@@ -93,7 +92,9 @@ the debug header. good luck opening up the console
 
 ## custom configs
 
-for dev, add configs to `overlay/etc/NetworkManager/system-connections/` and `overlay/root/.ssh/` for quick bring-up testing and fill ur keys there
+For local development, add ignored configs under
+`mkosi.profiles/tg5050/mkosi.extra/etc/NetworkManager/system-connections/`
+and `mkosi.profiles/tg5050/mkosi.extra/root/.ssh/`.
 
 
 ## Future OSTree work
@@ -114,8 +115,8 @@ than Mesa/Panfrost. The Vulkan loader needs the board ICD manifest:
 /usr/share/vulkan/icd.d/mali_icd.json
 ```
 
-The vendor stack is otherwise provided by `mkosi.prepare` and the board
-overlay: `libmali.so`, vendor GBM/EGL/GLES, `mali_kbase.ko`, and CSF firmware.
+The vendor stack is otherwise provided by the TG5050 profile prepare hook and
+`mkosi.extra`: `libmali.so`, vendor GBM/EGL/GLES, `mali_kbase.ko`, and CSF firmware.
 Without the ICD manifest, `vulkaninfo` reports `Found no drivers`; with it,
 `vkcube` works.
 
