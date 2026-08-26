@@ -1,0 +1,393 @@
+#!/bin/ash
+
+if grep -sq overlayfs /proc/filesystems
+then
+    OVERLAYFS=overlayfs
+else
+    OVERLAYFS=overlay
+fi
+MOUNT_MOVE="mount -n -o noatime,move"
+
+mkdir -p /dev /sys /proc
+mount -t proc  -o nodev,noexec,nosuid proc  /proc
+mount -t sysfs -o nodev,noexec,nosuid sysfs /sys
+mount -t devtmpfs none /dev
+
+exec < /dev/console > /dev/console 2>&1
+
+# Show frame-buffer cursor
+show_cursor() {
+    echo -en "\033[?25h"
+
+    # show cursor
+    if [ -f /sys/devices/virtual/graphics/fbcon/cursor_blink ]
+    then
+        echo 1 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+    fi
+}
+
+# Hide frame-buffer cursor
+hide_cursor() {
+    echo -en "\033[?25l"
+
+    if [ -f /sys/devices/virtual/graphics/fbcon/cursor_blink ]
+    then
+        echo 0 > /sys/devices/virtual/graphics/fbcon/cursor_blink
+    fi
+}
+
+boot_normal() {
+    local fs
+    if [ -x "/boot_root$INIT" ]
+    then
+        fs="$(grep \"/boot_root\>\" /proc/mounts | grep -o squashfs)"
+        if [ x"$fs" != x"squashfs" ]
+        then
+            mount -orw,noatime,remount /boot_root
+        fi
+        ${MOUNT_MOVE} /proc /boot_root/proc
+        ${MOUNT_MOVE} /sys /boot_root/sys
+        ${MOUNT_MOVE} /dev /boot_root/dev
+        echo "Try to run init process: $INIT"
+        exec switch_root /boot_root $INIT
+    fi
+}
+
+boot_knulli() {
+    local real_rootfs="$1"
+    local lowerdirs
+
+    mkdir -p /new_root
+    # update the squashfs
+    if [ -e /boot_root/boot/knulli.update ]
+    then
+        mount -o remount,rw /boot_root || return 1
+        mv /boot_root/boot/knulli.update /boot_root/boot/knulli || return 1
+        # remove the overlay when updating
+        if [ -e /boot_root/boot/overlay ]
+        then
+            mv /boot_root/boot/overlay /boot_root/boot/overlay.old      || return 1
+        fi
+        mount -o remount,ro /boot_root || return 1
+    fi
+
+    # create an overlay on memory
+    mount -t tmpfs -o size=128M tmpfs /overlay_root || return 1
+    mkdir /overlay_root/base /overlay_root/overlay /overlay_root/vendor /overlay_root/work /overlay_root/saved || return 1
+
+    # fill the overlay with the stored one
+    if [ -f /boot_root/boot/overlay ]
+    then
+        # the mount can fail if the fs was open in write and not correctly closed
+        if mount -o ro /boot_root/boot/overlay /overlay_root/saved
+        then
+            cp -fRp /overlay_root/saved/* /overlay_root/overlay/ || return 1
+            umount /overlay_root/saved                         || return 1
+        fi
+    fi
+
+    # mount the squashfs
+    ${MOUNT_MOVE} /sysroot /overlay_root/base || return 1
+
+    if [ "$OVERLAYFS" = "overlayfs" ]
+    then
+        if [ -e /boot_root/boot/vendor ]
+        then
+            if mount /boot_root/boot/vendor /overlay_root/vendor
+            then
+                cp -fRp /overlay_root/vendor/* /overlay_root/overlay/ || return 1
+                umount /overlay_root/vendor                         || return 1
+            fi
+        fi
+        mount -t $OVERLAYFS overlayfs:/overlay -o rw,noatime,lowerdir=/overlay_root/base,upperdir=/overlay_root/overlay /new_root
+    else
+        lowerdirs=/overlay_root/base
+        if [ -e /boot_root/boot/vendor ]
+        then
+            if mount /boot_root/boot/vendor /overlay_root/vendor
+            then
+                lowerdirs=/overlay_root/vendor:${lowerdirs}
+            fi
+        fi
+        mount -t $OVERLAYFS overlayfs:/overlay -o rw,noatime,lowerdir="${lowerdirs}",upperdir=/overlay_root/overlay,workdir=/overlay_root/work /new_root
+    fi
+    # mount the future root in read write
+    if [ $? != 0 ]
+    then
+        # mount only as squashfs, no overlay (xu4 doesn't support overlayfs)
+        ${MOUNT_MOVE} /overlay_root/base /new_root || return 1
+    fi
+
+    # moving current mounts
+    ${MOUNT_MOVE} /boot_root    /new_root/boot    || return 1
+    ${MOUNT_MOVE} /overlay_root /new_root/overlay || return 1
+    ${MOUNT_MOVE} /sys  	    /new_root/sys  	 || return 1
+    ${MOUNT_MOVE} /proc 	    /new_root/proc 	 || return 1
+    ${MOUNT_MOVE} /dev  	    /new_root/dev  	 || return 1
+
+    # switch to the new root
+    echo Try to run knulli init: $INIT
+    exec switch_root /new_root $INIT
+    return 1
+}
+
+boot_rocknix() {
+    local real_rootfs="$1"
+    local userdata="$2"
+    LIVE="no"
+
+    mkdir -p /sysroot /storage
+    # /boot_root as /flash
+
+    echo "Mounting storage"
+
+    if [ "${LIVE}" = "yes" -o -z "${userdata}" ]
+    then
+        # mount tmpfs and exit early. disk=xx is not allowed in live mode
+        mount -t tmpfs none /storage
+    else
+        if [ -f /boot_root/mount-storage.sh ]
+        then
+            . /boot_root/mount-storage.sh
+        else
+            mount -o rw,noatime "${userdata}" /storage
+        fi
+    fi
+
+    # mount the squashfs
+    mount -o ro "${real_rootfs}" /sysroot || return 1
+
+    if [ -f /boot_root/post-sysroot.sh ]
+    then
+        . /boot_root/post-sysroot.sh
+    fi
+
+    ${MOUNT_MOVE} /boot_root /sysroot/flash
+    ${MOUNT_MOVE} /storage /sysroot/storage
+
+    ${MOUNT_MOVE} /dev /sysroot/dev
+    ${MOUNT_MOVE} /proc /sysroot/proc
+    ${MOUNT_MOVE} /sys /sysroot/sys
+
+    if [ -f /sysroot/storage/.please_resize_me ]
+    then
+        INIT_UNIT="--unit=fs-resize.target"
+    elif [ -f /sysroot/storage/.cache/reset_oe -o -f /sysroot/storage/.cache/reset_xbmc ]
+    then
+        INIT_UNIT="--unit=factory-reset.target"
+    elif [ -f "${BACKUP_FILE}" ]
+    then
+        INIT_UNIT="--unit=backup-restore.target"
+    fi
+
+    # switch to the new root
+    echo Try to run rocknix init: $INIT
+    exec switch_root /sysroot $INIT ${INIT_ARGS} ${INIT_UNIT}
+    return 1
+}
+
+do_mount() {
+    echo "do mount ${1} to /boot_root"
+    if mount -o ro "${1}"           /boot_root; then return 0; fi
+    return 1
+}
+
+do_root() {
+    local roofs_type
+    local real_rootfs
+    local userdata
+
+    mkdir -p /boot_root /overlay_root /sysroot || return 1
+
+    # read the parameters
+    read -r cmdline < /proc/cmdline
+
+    # how many times to retry before moving on to the next dev/label/uuid
+    devretry=5
+    for param in ${cmdline}
+    do
+        case ${param} in
+            devretry=*) devretry=${param#devretry=};;
+        esac
+    done
+
+    MOUNTARG=none
+    boot_root_mounted=n
+    while [ $boot_root_mounted = n ]
+    do
+        for param in ${cmdline}
+        do
+            case ${param} in
+                dev=*)      MOUNTARG=${param#dev=};;
+                root=*)     MOUNTARG=${param#root=};;
+                label=*)    MOUNTARG=LABEL=${param#label=};;
+                uuid=*)     MOUNTARG=UUID=${param#uuid=};;
+                *)          continue;;
+            esac
+            for i in $(seq $devretry)
+            do
+                if do_mount "${MOUNTARG}"
+                then
+                    echo "Mounted ${MOUNTARG} as /boot_root"
+                    boot_root_mounted=y
+                    break
+                fi
+                echo "Waiting for the root device ${MOUNTARG}"
+                sleep 1
+            done
+            if [ $boot_root_mounted = y ]
+            then
+                break
+            fi
+        done
+    done
+
+    # check if the normal rootfs
+    if [ -x /boot_root$INIT ]
+    then
+        boot_normal
+        return $?
+    fi
+    rootfs_type=
+    real_rootfs=
+    if [ -n "${EMUSYSTEM}" ]
+    then
+        # do override
+        rootfs_type=auto
+        real_rootfs="${EMUSYSTEM}"
+    else
+        # try knulli
+        if [ -e /boot_root/boot/knulli ]
+        then
+            rootfs_type=knulli
+            real_rootfs=/boot_root/boot/knulli
+        else
+            # try ROCKNIX
+            if [ -e /boot_root/SYSTEM ]
+            then
+                rootfs_type=rocknix
+                real_rootfs=/boot_root/SYSTEM
+            fi
+        fi
+        if [ -z "${rootfs_type}" ]
+        then
+            for part in $(echo ${PARTITIONS} | sed 's/:/ /g')
+            do
+                case "${part%@*}" in
+                    "knulli")
+                        rootfs_type=knulli
+                        real_rootfs=/dev/${part#*@}
+                        break
+                        ;;
+                    "rocknix")
+                        rootfs_type=rocknix
+                        real_rootfs=/dev/${part#*@}
+                        break
+                        ;;
+                    "emusystem")
+                        rootfs_type=auto
+                        real_rootfs=/dev/${part#*@}
+                        break
+                        ;;
+                    *)
+                        # skip
+                        ;;
+                esac
+            done
+        fi
+    fi
+    if [ ! -e "${real_rootfs}" ]
+    then
+        echo No rootfs device found!
+	/bin/ash
+        return 1
+    fi
+    echo Use rootfs device ${real_rootfs}
+
+    mount -oro,noatime "$real_rootfs" /sysroot || return 1
+    # try to guess rootfs type
+    if [ "${rootfs_type}" = "auto" ]
+    then
+        if [ -d /sysroot/usr/share/knulli ]
+        then
+            rootfs_type=knulli
+        elif [ -e /sysroot/usr/lib/systemd/system/rocknix.target ]
+        then
+            rootfs_type=rocknix
+        fi
+        if [ "${rootfs_type}" = "auto" ]
+        then
+            echo Unsupport rootfs type!
+            return 1
+        fi
+        echo Guess rootfs type: ${rootfs_type}
+    fi
+
+    # find userdata partition
+    for part in $(echo ${PARTITIONS} | sed 's/:/ /g')
+    do
+        case "${part%@*}" in
+            "rootfs-data")
+                userdata=/dev/${part#*@}
+                break
+                ;;
+            *)
+                # skip
+                ;;
+        esac
+    done
+
+    case "${rootfs_type}" in
+        "knulli")
+            boot_knulli "/sysroot" "${userdata}"
+            ;;
+        "rocknix")
+            boot_rocknix "/sysroot" "${userdata}"
+            ;;
+    esac
+    return 1
+}
+
+INIT=/sbin/init
+for parm in $(cat /proc/cmdline)
+do
+    case $parm in
+        ramfs)
+            RAMFS_MODE=1
+            ;;
+        console=*)
+            CONSOLE_DEVICE=$(echo $parm | awk -F\= '{print $2}' | awk -F\, '{print $1}')
+            ;;
+        init=*)
+            INIT=$(echo $parm | awk -F\= '{print $2}')
+            ;;
+        bootreason=*)
+            BOOTREASON=$(echo $parm | awk -F\= '{print $2}')
+            ;;
+        partitions=*)
+            PARTITIONS=$(echo $parm | awk -F\= '{print $2}')
+            ;;
+        emusystem=*)
+            EMUSYSTEM=$(echo $parm | awk -F\= '{print $2}')
+            ;;
+    esac
+done
+
+echo "BOOTREASON: ${BOOTREASON}"
+echo "INIT: ${INIT}"
+echo "CONSOLE DEVICE is ${CONSOLE_DEVICE}"
+
+if [ x"${RAMFS_MODE}" = x"1" ]
+then
+    /sbin/getty -L ${CONSOLE_DEVICE} 115200 vt100 -n -l /bin/ash
+fi
+
+#if [ x"${BOOTREASON}" = x"charger" ]
+#then
+#    exec /bin/healthd
+#fi
+
+if ! do_root
+then
+    /sbin/getty -L ${CONSOLE_DEVICE} 115200 vt100 -n -l /bin/ash
+fi

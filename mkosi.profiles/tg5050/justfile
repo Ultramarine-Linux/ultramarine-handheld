@@ -4,7 +4,7 @@ profile := "tg5050"
 profile_dir := justfile_directory()
 project := profile_dir / "../.."
 build_dir := project / "build"
-env_source := profile_dir / "board/stock-sd.env"
+env_source := profile_dir / "board/trimui-linux-direct-root.env"
 env_image := build_dir / "env.img"
 
 # Build the board's 128 KiB U-Boot environment image.
@@ -18,7 +18,7 @@ env:
 rootfs:
     mkosi --directory={{project}} --profile={{profile}} --force
 
-# Package the rootfs tree as the p5 ext4 artifact.
+# Package the rootfs tree for p5 behind the compact p4 bootstrap.
 rootfs-image: rootfs
     rm -f {{build_dir}}/ultramarine-rootfs.ext4
     truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
@@ -28,10 +28,14 @@ rootfs-image: rootfs
 # Build the p4 early-root artifact.
 initrd:
     mkosi --directory={{profile_dir}}/initrd --force
-    e2fsck -fn {{build_dir}}/initrd-root.ext4
+    e2fsck -fn {{build_dir}}/initrd-root/initrd-root.ext4
+
+# TG5050-only Android boot-image v0 p3 carrier.
+bootimg:
+    {{profile_dir}}/board/android_image/build-p3
 
 # Assemble the complete SD-card image from the selected profile's artifacts.
-image: env initrd rootfs-image
+image: env bootimg initrd rootfs-image
     {{profile_dir}}/image/assemble-sd-image
 
 summary:
