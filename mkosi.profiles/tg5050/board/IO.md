@@ -208,6 +208,33 @@ runtime-suspended. The board TuneD profiles set it to `simple_ondemand`, which
 reached 150 MHz during idle validation. Do not force a GPU ceiling until an
 actual GPU-utilisation trace proves it is the hot component.
 
+### Handheld clock-control contract
+
+The future handheld software stack should expose clock domains by discovering
+the live sysfs controls, not by hardcoding a single shared clock value:
+
+```text
+CPU little  /sys/devices/system/cpu/cpufreq/policy0
+CPU big     /sys/devices/system/cpu/cpufreq/policy4
+GPU         /sys/class/devfreq/1800000.gpu
+DDR         /sys/class/devfreq/3120000.dmcfreq
+```
+
+For every domain, report its current frequency, governor, min/max bounds, and
+`scaling_available_frequencies` or `available_frequencies`. A ceiling request
+must be validated against that domain's own OPP list. The CPU UI may offer a
+single target ceiling only by rounding down independently for each policy: the
+little cluster tops out at 1416 MHz, while the big cluster reaches 2160 MHz.
+
+The supported controls are governor selection plus validated `min_freq` and
+`max_freq` bounds. `schedutil` (CPU) and `simple_ondemand` (GPU/DDR) are the
+normal dynamic modes. Exact fixed-frequency mode must be capability-probed when
+switching a devfreq domain to its `userspace` governor; do not expose a fixed
+clock control until the vendor driver's runtime sysfs interface has been
+verified. The privileged broker/UI belongs in the separate handheld-software
+repository, while this board image owns only the hardware contract and TuneD
+defaults.
+
 ## Fan and thermal control
 
 Knulli's A527 reference starts `knulli-fan-control` from
