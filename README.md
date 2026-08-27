@@ -69,10 +69,9 @@ sudo dd if=build/ultramarine-trimui-6g.raw \
 sync
 ```
 
-The compact image occupies the first 6 GiB of a larger card. Do not expand p5
-until the unchanged compact layout has booted successfully. After that test,
-p5 may be enlarged to the remaining card capacity and its ext4 filesystem
-resized.
+The compact image occupies the first 6 GiB of a larger card. Its final p4
+partition is the direct Ultramarine system root; there is no p5 bootstrap or
+secondary root partition.
 
 ## Hardware I/O
 
@@ -83,7 +82,7 @@ battery details are documented in:
 
 ## usb gadget mode
 
-The p5 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
+The p4 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
 gadget port. It assigns the device `192.168.42.1/24`; this is the preferred
 bring-up path for SSH and logs. The top USB-C port is host-only.
 
@@ -96,15 +95,6 @@ For local development, add ignored configs under
 `mkosi.profiles/tg5050/mkosi.extra/etc/NetworkManager/system-connections/`
 and `mkosi.profiles/tg5050/mkosi.extra/root/.ssh/`.
 
-
-## Future OSTree work
-
-The current root is a flat ext4 system. A future p4 systemd initrd/bootstrap
-can mount p5, select a classic OSTree deployment, and switch root into it.
-Classic OSTree/bootc deployments work without composefs; composefs is deferred
-because the vendor kernel lacks the required EROFS/fs-verity support.
-
-better immutable might work if we use hermetic root, 
 
 ## Compositor bring-up
 

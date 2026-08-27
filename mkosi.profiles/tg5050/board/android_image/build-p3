@@ -25,7 +25,7 @@ case "$mode" in
         ;;
 esac
 
-for input in "$reference" "$kernel" "$original_ramdisk" "$root/init"; do
+for input in "$reference" "$kernel" "$original_ramdisk"; do
     test -f "$input" || { echo "missing required input: $input" >&2; exit 1; }
 done
 
@@ -37,6 +37,7 @@ trap cleanup EXIT
 
 ramdisk="$original_ramdisk"
 if test "$mode" = --repack-root; then
+    test -f "$root/init" || { echo "missing required input: $root/init" >&2; exit 1; }
     ramdisk="$stage/ramdisk.cpio.gz"
     # Keep archive ordering deterministic and make the early root genuinely
     # root-owned even when this recipe runs unprivileged.

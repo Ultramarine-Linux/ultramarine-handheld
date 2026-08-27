@@ -218,7 +218,7 @@ fan policy daemon; this is the reference behavior to reproduce.
 
 ## USB gadget
 
-The p5 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
+The direct p4 rootfs enables an early ConfigFS RNDIS gadget on the bottom USB-C
 gadget port. It assigns the device `192.168.42.1/24`; this is the preferred
 bring-up path for SSH and logs. The top USB-C port is host-only.
 

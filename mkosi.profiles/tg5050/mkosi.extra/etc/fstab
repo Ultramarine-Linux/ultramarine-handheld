@@ -1,2 +1,2 @@
-# Compact SD baseline: systemd runs from p5 after the p4 bootstrap handoff.
-/dev/mmcblk0p5  /  ext4  defaults  0  1
+# Direct system root selected by the vendor U-Boot rootfs partition lookup.
+/dev/mmcblk0p4  /  ext4  defaults  0  1

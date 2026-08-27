@@ -26,8 +26,6 @@ cache/
 mkosi.tools
 mkosi.tools.manifest
 mkosi.tools/bin
-/mkosi.profiles/tg5050/initrd/mkosi.tools/
-/mkosi.profiles/tg5050/initrd/mkosi.tools.manifest
 # Host/editor noise
 *.swp
 *.swo

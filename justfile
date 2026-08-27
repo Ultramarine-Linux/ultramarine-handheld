@@ -17,9 +17,6 @@ rootfs:
 rootfs-image:
     just --justfile {{profile_justfile}} rootfs-image
 
-initrd:
-    just --justfile {{profile_justfile}} initrd
-
 image:
     just --justfile {{profile_justfile}} image
 

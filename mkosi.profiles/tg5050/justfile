@@ -25,34 +25,20 @@ env-partition: env
     cmp -s {{env_image}} <(dd if={{env_partition_image}} bs=128K count=1 status=none)
     sha256sum {{env_partition_image}}
 
-# Build the direct-p5 fallback environment without replacing the active p4 route.
-direct_root_env_source := profile_dir / "board/trimui-linux-direct-root.env"
-direct_root_env_image := build_dir / "env-direct-root.img"
-direct-root-env:
-    mkdir -p {{build_dir}}
-    mkenvimage -s 0x20000 -p 0x00 -o {{direct_root_env_image}} {{direct_root_env_source}}
-    test "$(stat -c %s {{direct_root_env_image}})" -eq 131072
-    sha256sum {{direct_root_env_image}}
-
-# Build the TG5050 p5 userspace with real ownership metadata.
+# Build the TG5050 direct p4 userspace with real ownership metadata.
 rootfs:
     sudo mkosi --directory={{project}} --profile={{profile}} --force
 
-# Package the rootfs tree for p5 behind the compact p4 bootstrap.
+# Package the rootfs tree for the direct p4 system root.
 rootfs-image: rootfs
     sudo rm -f {{build_dir}}/ultramarine-rootfs.ext4
     sudo truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
     sudo mkfs.ext4 -F -L ULTRAMARINE -d {{build_dir}}/ultramarine-rootfs {{build_dir}}/ultramarine-rootfs.ext4
     sudo e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
 
-# Build the p4 early-root artifact.
-initrd:
-    sudo mkosi --directory={{profile_dir}}/initrd --force
-    e2fsck -fn {{build_dir}}/initrd-root/initrd-root.ext4
-
-# TG5050-only Android boot-image v0 p3 carrier rebuilt from editable root/.
+# Reproduce the untouched TG5050 Android boot-image v0 p3 carrier.
 bootimg:
-    {{profile_dir}}/board/android_image/build-p3 --repack-root
+    {{profile_dir}}/board/android_image/build-p3 --original-ramdisk
 
 # Reproduce the untouched SD reference carrier byte-for-byte.
 bootimg-reference:

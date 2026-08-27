@@ -9,7 +9,7 @@ set -euo pipefail
 commit=fe75f26365e6027bafdfe8c20359db04177f8f83
 url="https://github.com/knulli-cfw/mali-g57-sunxi-drivers/archive/${commit}.tar.gz"
 expected_libmali_sha256=c281fdb19a4384e463cdb6e3afefa7759774d0cf4cf44462fe61d5f14c3c3e91
-cache_dir="$SRCDIR/build/vendor-sources"
+cache_dir="$SRCDIR/cache/vendor-sources"
 archive="$cache_dir/mali-g57-sunxi-drivers-${commit}.tar.gz"
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
