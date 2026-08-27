@@ -10,11 +10,16 @@ trap cleanup EXIT
 
 # Static AArch64 BusyBox keeps this bootstrap independent of a dynamic runtime.
 install -D -m 0755 "$BUILDROOT/usr/bin/busybox" "$stage/bin/busybox"
-for applet in ash mkdir mount switch_root; do
+for applet in ash cat mkdir mount sleep switch_root sync; do
     ln -s busybox "$stage/bin/$applet"
 done
 install -m 0755 "$SRCDIR/root/init" "$stage/init"
-mkdir -p "$stage"/{dev,proc,sys,sysroot}
+mkdir -p "$stage"/{dev,proc,sys,sysroot,sbin}
+# The vendor kernel normally honors init=/init, but provide the conventional
+# fallback names as the same bootstrap while p4 PID-1 selection is traced.
+ln -s init "$stage/linuxrc"
+ln -s ../init "$stage/sbin/init"
+chown -hR 0:0 "$stage"
 
 # The 512 MiB p4 partition is an ordinary Linux ext4 root. Retain the
 # conservative feature set that matched the original vendor p4 filesystem.

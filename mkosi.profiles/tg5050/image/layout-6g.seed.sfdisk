@@ -7,6 +7,6 @@ first-lba: 73728
 last-lba: 12582878
 sector-size: 512
 
-# Seed the final p5 slot so systemd-repart can discover an ARM64 root image
-# before it allocates p1-p4 in the free prefix.
-/dev/loop0p5 : start=3448832, size=9134047, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, uuid=9D103D1F-C53E-412F-9F37-A4CE65A3BC00, name="rootfs"
+# Seed p4 as the final direct system root. systemd-repart allocates p1-p3 in
+# the free prefix; vendor U-Boot resolves root_partition=rootfs to this slot.
+/dev/loop0p4 : start=2400256, size=10182623, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, uuid=693B9ABA-2FC7-4222-9BD9-D2DC7B82099A, name="rootfs"

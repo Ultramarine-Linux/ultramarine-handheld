@@ -1,12 +1,14 @@
 [Unit]
 Description=Ultramarine KMS boot journal console
 # Start during system initialization without inheriting the normal
-# service-after-sysinit dependency. Do not add Before=basic.target: that
-# previously formed an unbreakable target ordering cycle.
+# service-after-sysinit dependency. It stays active through multi-user.target,
+# then graphical.target stops it before a compositor claims DRM. Do not add
+# Before=basic.target: that previously formed an unbreakable target cycle.
 DefaultDependencies=no
-After=systemd-journald.service systemd-udevd.service systemd-remount-fs.service
+After=systemd-journald.service systemd-udevd.service
 Wants=systemd-journald.service
-Conflicts=getty@tty1.service shutdown.target
+Before=graphical.target
+Conflicts=getty@tty1.service graphical.target shutdown.target
 
 [Service]
 Type=simple

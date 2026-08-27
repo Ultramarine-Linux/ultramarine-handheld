@@ -1,38 +1,69 @@
 #!/bin/ash
-# Raw ext4 p4 bootstrap, launched by p3 when p2 selects root=p4 init=/init.
+# Raw ext4 p4 bootstrap, mounted directly by the vendor kernel when p2 selects
+# root=p4 init=/init. The Android p3 ramdisk's /init is bypassed on this path.
 set -u
 
 LOG=/p4-boot.log
+P5_LOG=
+BUSYBOX=/bin/busybox
+
+# The kernel mounts the initial root read-only. Make p4 writable before the
+# first trace write so a failed p5 mount leaves evidence on p4 itself.
+mount -o remount,rw / 2>/dev/null || true
 : > "$LOG" 2>/dev/null || true
 
 log() {
     printf '[p4] %s\n' "$*" >>"$LOG" 2>/dev/null || true
+    "$BUSYBOX" sync 2>/dev/null || true
+    if [ -n "$P5_LOG" ]; then
+        printf '[p4] %s\n' "$*" >>"$P5_LOG" 2>/dev/null || true
+        "$BUSYBOX" sync 2>/dev/null || true
+    fi
 }
 
 log 'init started'
-log "cmdline: $(cat /proc/cmdline 2>/dev/null || printf unavailable)"
+log "cmdline: $($BUSYBOX cat /proc/cmdline 2>/dev/null || printf unavailable)"
 
-mount -t devtmpfs devtmpfs /dev
-log 'mounted devtmpfs'
-mount -t proc proc /proc
-log 'mounted proc'
-mount -t sysfs sysfs /sys
-log 'mounted sysfs'
+if mount -t devtmpfs devtmpfs /dev 2>>"$LOG"; then
+    log 'mounted devtmpfs'
+else
+    log 'devtmpfs already mounted or mount failed'
+fi
+if mount -t proc proc /proc 2>>"$LOG"; then
+    log 'mounted proc'
+else
+    log 'proc already mounted or mount failed'
+fi
+if mount -t sysfs sysfs /sys 2>>"$LOG"; then
+    log 'mounted sysfs'
+else
+    log 'sysfs already mounted or mount failed'
+fi
 
-log 'mounting Ultramarine root on /dev/mmcblk0p5'
 mkdir -p /sysroot
-if ! mount -t ext4 -o rw /dev/mmcblk0p5 /sysroot; then
-    log 'cannot mount /dev/mmcblk0p5'
+attempt=1
+mounted=n
+while [ "$attempt" -le 10 ]; do
+    log "p5 mount attempt $attempt/10"
+    if [ -b /dev/mmcblk0p5 ] && mount -t ext4 -o rw /dev/mmcblk0p5 /sysroot 2>>"$LOG"; then
+        mounted=y
+        break
+    fi
+    log '/dev/mmcblk0p5 missing or mount failed'
+    "$BUSYBOX" sleep 1
+    attempt=$((attempt + 1))
+done
+if [ "$mounted" != y ]; then
+    log 'cannot mount /dev/mmcblk0p5; opening recovery shell'
     exec /bin/ash
 fi
+P5_LOG=/sysroot/p4-boot.log
+: > "$P5_LOG" 2>/dev/null || true
 log 'mounted p5'
 
 mkdir -p /sysroot/dev /sysroot/proc /sysroot/sys
-mount --move /dev /sysroot/dev
-log 'moved /dev'
-mount --move /proc /sysroot/proc
-log 'moved /proc'
-mount --move /sys /sysroot/sys
-log 'moved /sys'
+mount -o move /dev /sysroot/dev 2>>"$P5_LOG" && log 'moved /dev' || log 'cannot move /dev'
+mount -o move /proc /sysroot/proc 2>>"$P5_LOG" && log 'moved /proc' || log 'cannot move /proc'
+mount -o move /sys /sysroot/sys 2>>"$P5_LOG" && log 'moved /sys' || log 'cannot move /sys'
 log 'switching to p5 /sbin/init'
-exec switch_root /sysroot /sbin/init
+exec /bin/switch_root /sysroot /sbin/init

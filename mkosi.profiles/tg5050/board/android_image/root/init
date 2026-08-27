@@ -15,6 +15,50 @@ mount -t devtmpfs none /dev
 
 exec < /dev/console > /dev/console 2>&1
 
+# Persist early p3 diagnostics on p1 when it is available. This deliberately
+# stays independent of the selected root so a failed p5 handoff leaves evidence.
+LOG_MOUNT=/boot-resource
+LOG_FILE="$LOG_MOUNT/p3-boot.log"
+LOG_READY=0
+LOG_BUFFER=
+
+log() {
+    LOG_BUFFER="${LOG_BUFFER}[p3] $*\n"
+    if [ "$LOG_READY" = 1 ]; then
+        printf '[p3] %s\n' "$*" >> "$LOG_FILE" 2>/dev/null || true
+    fi
+}
+
+start_log() {
+    log 'init started'
+    log "cmdline: $(cat /proc/cmdline 2>/dev/null || printf unavailable)"
+    mkdir -p "$LOG_MOUNT"
+    if mount -t vfat -o rw,noatime /dev/mmcblk0p1 "$LOG_MOUNT" 2>/dev/null; then
+        LOG_READY=1
+        : > "$LOG_FILE"
+        log 'p1 log mount succeeded'
+    else
+        log 'p1 log mount failed'
+    fi
+}
+
+flush_root_log() {
+    local root_log=/boot_root/p3-boot.log
+    if : > "$root_log" 2>/dev/null; then
+        printf '%b' "$LOG_BUFFER" >> "$root_log" 2>/dev/null || true
+    fi
+}
+
+finish_log() {
+    if [ "$LOG_READY" = 1 ]; then
+        sync
+        umount "$LOG_MOUNT" 2>/dev/null || true
+        LOG_READY=0
+    fi
+}
+
+start_log
+
 # Show frame-buffer cursor
 show_cursor() {
     echo -en "\033[?25h"
@@ -38,6 +82,7 @@ hide_cursor() {
 
 boot_normal() {
     local fs
+    log "boot_normal: checking $INIT"
     if [ -x "/boot_root$INIT" ]
     then
         fs="$(grep \"/boot_root\>\" /proc/mounts | grep -o squashfs)"
@@ -49,8 +94,12 @@ boot_normal() {
         ${MOUNT_MOVE} /sys /boot_root/sys
         ${MOUNT_MOVE} /dev /boot_root/dev
         echo "Try to run init process: $INIT"
+        log 'handoff to final init'
+        flush_root_log
+        finish_log
         exec switch_root /boot_root $INIT
     fi
+    log "boot_normal: missing or non-executable $INIT"
 }
 
 boot_knulli() {
@@ -188,7 +237,12 @@ boot_rocknix() {
 
 do_mount() {
     echo "do mount ${1} to /boot_root"
-    if mount -o ro "${1}"           /boot_root; then return 0; fi
+    log "mounting ${1} at /boot_root"
+    if mount -o ro "${1}" /boot_root; then
+        log "mounted ${1}"
+        return 0
+    fi
+    log "mount failed: ${1}"
     return 1
 }
 
@@ -198,6 +252,7 @@ do_root() {
     local userdata
 
     mkdir -p /boot_root /overlay_root /sysroot || return 1
+    log 'do_root started'
 
     # read the parameters
     read -r cmdline < /proc/cmdline
@@ -245,6 +300,7 @@ do_root() {
     # check if the normal rootfs
     if [ -x /boot_root$INIT ]
     then
+        log "normal root contains $INIT"
         boot_normal
         return $?
     fi
@@ -299,6 +355,7 @@ do_root() {
     if [ ! -e "${real_rootfs}" ]
     then
         echo No rootfs device found!
+	log 'no supported rootfs found'
 	/bin/ash
         return 1
     fi
@@ -376,6 +433,8 @@ done
 echo "BOOTREASON: ${BOOTREASON}"
 echo "INIT: ${INIT}"
 echo "CONSOLE DEVICE is ${CONSOLE_DEVICE}"
+log "bootreason: ${BOOTREASON}"
+log "requested init: ${INIT}"
 
 if [ x"${RAMFS_MODE}" = x"1" ]
 then
@@ -389,5 +448,6 @@ fi
 
 if ! do_root
 then
+    log 'do_root failed; entering getty'
     /sbin/getty -L ${CONSOLE_DEVICE} 115200 vt100 -n -l /bin/ash
 fi

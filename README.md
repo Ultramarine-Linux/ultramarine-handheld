@@ -41,12 +41,12 @@ Requirements include `mkosi`, `systemd-repart`, `sfdisk`, `mkenvimage`,
 for loop devices and filesystem resizing inside the output image.
 
 ```bash
-just profile=tg5050 env initrd rootfs-image
+just profile=tg5050 env rootfs-image
 just profile=tg5050 image
 ```
 
 The final command verifies GPT structure and byte identity for boot0, the boot
-package, p2, and p3. It also verifies p5 with `e2fsck`.
+package, p2, and p3. It also verifies the direct p4 system root with `e2fsck`.
 
 Inspect a completed image:
 

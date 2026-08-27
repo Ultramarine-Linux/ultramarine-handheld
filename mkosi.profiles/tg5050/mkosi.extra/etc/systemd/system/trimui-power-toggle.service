@@ -1,0 +1,16 @@
+[Unit]
+Description=TrimUI short-press panel power toggle
+DefaultDependencies=no
+After=systemd-udevd.service
+Wants=systemd-udevd.service
+Before=multi-user.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/trimui-power-toggle
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=sysinit.target

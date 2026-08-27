@@ -1,0 +1,98 @@
+#!/usr/bin/python3
+"""Toggle the TrimUI panel on a short axp2202-pek power-key press."""
+
+from __future__ import annotations
+
+import glob
+import logging
+import os
+from pathlib import Path
+import struct
+import time
+
+EV_KEY = 0x01
+KEY_POWER = 116
+INPUT_EVENT = struct.Struct("@llHHI")
+INPUT_CLASS = Path(os.environ.get("TRIMUI_INPUT_CLASS", "/sys/class/input"))
+INPUT_DEVICES = Path(os.environ.get("TRIMUI_INPUT_DEVICES", "/dev/input"))
+BACKLIGHT_CLASS = Path(
+    os.environ.get("TRIMUI_BACKLIGHT_CLASS", "/sys/class/backlight")
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(name)s: %(message)s",
+)
+LOG = logging.getLogger("trimui-power-toggle")
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="ascii").strip()
+
+
+def find_power_event() -> Path | None:
+    for event_dir in sorted(INPUT_CLASS.glob("event*")):
+        try:
+            if read_text(event_dir / "device" / "name") == "axp2202-pek":
+                return INPUT_DEVICES / event_dir.name
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def find_backlight() -> Path | None:
+    candidates = sorted(BACKLIGHT_CLASS.glob("*"))
+    return candidates[0] if candidates else None
+
+
+def write_value(path: Path, value: int) -> None:
+    path.write_text(f"{value}\n", encoding="ascii")
+
+
+def toggle_backlight() -> None:
+    backlight = find_backlight()
+    if backlight is None:
+        LOG.warning("no backlight device found")
+        return
+
+    power = backlight / "bl_power"
+    try:
+        current = int(read_text(power))
+        target = 4 if current == 0 else 0
+        write_value(power, target)
+    except (OSError, ValueError) as error:
+        LOG.error("cannot toggle %s: %s", power, error)
+        return
+
+    state = "off" if target == 4 else "on"
+    LOG.info("panel %s via %s", state, power)
+
+
+def monitor(event_device: Path) -> None:
+    LOG.info("monitoring %s", event_device)
+    with event_device.open("rb", buffering=0) as stream:
+        while True:
+            event = stream.read(INPUT_EVENT.size)
+            if len(event) != INPUT_EVENT.size:
+                raise OSError("short read from input event device")
+            _, _, event_type, code, value = INPUT_EVENT.unpack(event)
+            if event_type == EV_KEY and code == KEY_POWER and value == 1:
+                toggle_backlight()
+
+
+def main() -> None:
+    while True:
+        event_device = find_power_event()
+        if event_device is None:
+            LOG.info("waiting for axp2202-pek input device")
+            time.sleep(1)
+            continue
+        try:
+            monitor(event_device)
+        except OSError as error:
+            LOG.warning("input device unavailable: %s", error)
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

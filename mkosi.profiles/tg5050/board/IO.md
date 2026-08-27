@@ -198,9 +198,10 @@ fan policy daemon; this is the reference behavior to reproduce.
 
 ## Power, display, and other I/O
 
-- `axp2202-pek` is `/dev/input/event2`; systemd-logind watches it as the
-  hardware power key. The image overrides logind so a short press is ignored
-  and a long press powers off.
+- `axp2202-pek` is `/dev/input/event2` on the inspected boot. The power-toggle
+  service discovers it by name rather than relying on that event number: a
+  short `KEY_POWER` press toggles `/sys/class/backlight/*/bl_power` between 0
+  and 4, while logind retains long press as poweroff.
 - `pwm-vibrator` is `/dev/input/event1` on the current boot, but applications
   should use its `/dev/input/by-path/` link rather than the event number.
 - The KMS journal console uses kmscon with `--dpms-timeout 0`; the default

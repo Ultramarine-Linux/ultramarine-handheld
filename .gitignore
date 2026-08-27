@@ -2,6 +2,7 @@
 /build/
 # Generated root filesystems and disk images
 /ultramarine-rootfs/
+
 /image.raw
 *.img
 *.img.zst
@@ -44,3 +45,6 @@ references/
 .env
 .env.*
 mkosi.profiles/tg5050/mkosi.extra/root/.ssh/
+
+# cache
+__pycache__
