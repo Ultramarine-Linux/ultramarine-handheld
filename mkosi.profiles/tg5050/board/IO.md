@@ -167,10 +167,46 @@ echo 1416000 > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
 echo 2160000 > /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
 ```
 
-Ultramarine currently exposes the kernel controls but does not yet ship the
-Knulli governor/frequency policy helpers. A future systemd service should
-apply governor and frequency policy after cpufreq policies appear, and should
-leave thermal cooling in charge of emergency throttling.
+Ultramarine uses Fedora's standard `tuned` daemon with `tuned-ppd` for the
+power-profiles-daemon compatibility API. It overrides the stock named TuneD
+profiles in `/etc/tuned/profiles/` to preserve dynamic DDR scaling without
+changing PPD's standard mapping:
+
+```text
+power-saver → powersave
+balanced    → balanced
+on battery  → balanced-battery
+performance → throughput-performance
+```
+
+Each named profile retains its Fedora behavior and adds
+`/sys/class/devfreq/3120000.dmcfreq/governor=simple_ondemand`. The balanced
+profile selects `schedutil` for both CPU policies. Thermal cpufreq cooling
+remains the emergency backstop rather than a normal idle-power policy.
+
+## GPU and DDR devfreq
+
+The vendor `mali_kbase` driver exposes the GPU through:
+
+```text
+/sys/class/devfreq/1800000.gpu
+```
+
+At confirmed idle, it uses `simple_ondemand`, remains at its 150 MHz minimum,
+and runtime-suspends the GPU; an 888 MHz PLL rate alone is not evidence that
+the PLL is enabled. Inspect the debugfs enable counts before attributing heat to
+the GPU.
+
+The DDR controller is separately exposed at:
+
+```text
+/sys/class/devfreq/3120000.dmcfreq
+```
+
+The vendor default `performance` governor pins it at 1.2 GHz even when Mali is
+runtime-suspended. The board TuneD profiles set it to `simple_ondemand`, which
+reached 150 MHz during idle validation. Do not force a GPU ceiling until an
+actual GPU-utilisation trace proves it is the hot component.
 
 ## Fan and thermal control
 
@@ -191,10 +227,13 @@ below 30 C: fan off
 80 C:       maximum ramp point
 ```
 
-It polls every two seconds, debounces fan-off for three loops, and supports
-`quiet`, `normal`, and `performance` multipliers. The current Ultramarine
-image exposes the same kernel thermal/fan interface but does not yet ship a
-fan policy daemon; this is the reference behavior to reproduce.
+The vendor `pwm-fan` is also exposed through hwmon as `pwmfan` / `pwm1`, while
+the big-cluster thermal zone is a direct thermal-sysfs input. Ultramarine ships
+the standard `lm_sensors` `fancontrol.service` with an absolute-path
+configuration mapping those paths: 35°C stops the fan, 80°C reaches PWM 255,
+and a stopped fan restarts at PWM 180. There is no tachometer, so `FCFANS` is
+intentionally empty. `pwmconfig` remains useful for an interactive physical
+minimum-start test if the curve needs further tuning.
 
 ## Power, display, and other I/O
 

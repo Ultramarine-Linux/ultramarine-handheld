@@ -1,0 +1,13 @@
+# TG5050 vendor kernel: pwm-fan is hwmon0, while CPU thermal zones are direct
+# thermal sysfs devices. fancontrol supports these absolute paths without
+# DEVPATH/DEVNAME validation or an RPM/tachometer source.
+INTERVAL=2
+FCTEMPS=/sys/class/hwmon/hwmon0/pwm1=/sys/class/thermal/thermal_zone1/temp
+FCFANS=
+MINTEMP=/sys/class/hwmon/hwmon0/pwm1=35
+MAXTEMP=/sys/class/hwmon/hwmon0/pwm1=80
+MINSTART=/sys/class/hwmon/hwmon0/pwm1=180
+MINSTOP=/sys/class/hwmon/hwmon0/pwm1=100
+MINPWM=/sys/class/hwmon/hwmon0/pwm1=0
+MAXPWM=/sys/class/hwmon/hwmon0/pwm1=255
+AVERAGE=/sys/class/hwmon/hwmon0/pwm1=3
