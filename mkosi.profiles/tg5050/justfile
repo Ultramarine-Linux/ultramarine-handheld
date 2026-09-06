@@ -18,21 +18,15 @@ env:
 # Build the complete 16 MiB p2 partition: active environment at offset zero,
 # with the verified all-zero remainder used by the compact SD baseline.
 
-# Internal mkosi staging step. The public rootfs target emits an ext4 image;
-# this directory is not a deliverable and is removed after packaging.
-rootfs-tree: mainline-modules
-    sudo mkosi --directory={{project}} --profile={{profile}} --force
+# Stage versioned kernel artifacts and BLS files for the mainline mkosi image.
+mainline-boot-tree: mainline-modules mainline-kernel
+    sudo {{profile_dir}}/image/stage-systemd-boot {{build_dir}}/mainline-boot-tree
 
-# Build the TG5050 direct p4 ext4 filesystem image with real ownership metadata.
-rootfs-image: rootfs-tree
-    sudo rm -f {{build_dir}}/ultramarine-rootfs.ext4
-    sudo truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
-    sudo mkfs.ext4 -F -L ULTRAMARINE -d {{build_dir}}/ultramarine-rootfs {{build_dir}}/ultramarine-rootfs.ext4
-    sudo e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
-    sudo rm -rf {{build_dir}}/ultramarine-rootfs
+# Build the complete GPT image, including ESP and p4, with mkosi/repart.
+mainline-disk: mainline-boot-tree
+    sudo mkosi --directory={{project}} --profile={{profile}},mainline --force
 
-# emit rootfs image
-rootfs: rootfs-image
+rootfs: mainline-disk
 
 # Reproduce the untouched TG5050 Android boot-image v0 p3 carrier.
 bootimg:
@@ -44,11 +38,26 @@ mainline-uboot:
 
 # Apply the pinned TG5050 patchset to a Linux v7.2 tree and build Image/modules/DTB.
 mainline-kernel:
-    {{profile_dir}}/board/mainline-kernel/build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    image='{{build_dir}}/mainline-src/linux/arch/arm64/boot/Image'
+    dtb='{{build_dir}}/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb'
+    if [[ "${REBUILD_MAINLINE_KERNEL:-0}" == 1 || ! -f "$image" || ! -f "$dtb" ]]; then
+        {{profile_dir}}/board/mainline-kernel/build
+    else
+        printf 'reusing verified mainline kernel artifacts (set REBUILD_MAINLINE_KERNEL=1 to rebuild)\n'
+    fi
 
 # Stage matching in-tree modules, AIC8800 modules, and firmware for mkosi.
 mainline-modules: mainline-kernel
-    {{profile_dir}}/board/mainline-kernel/stage-modules {{quote(build_dir / "mainline-kernel-worktree")}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    modules='{{build_dir}}/mainline-module-tree/lib/modules'
+    if [[ "${REBUILD_MAINLINE_KERNEL:-0}" == 1 || ! -d "$modules" ]]; then
+        {{profile_dir}}/board/mainline-kernel/stage-modules {{quote(build_dir / "mainline-kernel-worktree")}}
+    else
+        printf 'reusing verified mainline module staging (set REBUILD_MAINLINE_KERNEL=1 to rebuild)\n'
+    fi
 
 systemd-initrd:
     mkosi --directory={{profile_dir}}/systemd-initrd --force build
@@ -56,7 +65,7 @@ systemd-initrd:
 mainline-initramfs:
     {{profile_dir}}/board/mainline-initramfs/build
 
-mainline-image: image mainline-uboot mainline-initramfs systemd-initrd mainline-kernel
+mainline-image: mainline-disk mainline-uboot
     {{profile_dir}}/image/assemble-mainline-image
 
 # Incrementally flash mainline SPL/FIT and the p1 boot payload. This leaves
@@ -69,31 +78,25 @@ flash-mainline target:
     bootdev=$({{profile_dir}}/image/validate-target "$target")
     spl='{{build_dir}}/mainline-uboot-artifacts/sunxi-spl.bin'
     fit='{{build_dir}}/mainline-uboot-artifacts/u-boot.itb'
-    kernel='{{build_dir}}/mainline-src/linux/arch/arm64/boot/Image'
-    ramdisk='{{build_dir}}/mainline-initramfs.cpio.gz'
-    systemd_ramdisk='{{build_dir}}/mainline-systemd-initramfs.cpio.gz'
-    dtb='{{build_dir}}/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb'
-    extlinux='{{profile_dir}}/image/extlinux-mainline.conf'
-    test -f "$spl" -a -f "$fit" -a -f "$kernel" -a -f "$ramdisk" -a -f "$systemd_ramdisk" -a -f "$dtb" -a -f "$extlinux"
+    esp_tree='{{build_dir}}/esp-tree'
+    test -f "$spl" -a -f "$fit" -a -f "$esp_tree/EFI/BOOT/BOOTAA64.EFI"
     test "$(stat -c %s "$spl")" -le 131072 || { echo "SPL overlaps FIT slot" >&2; exit 1; }
     test "$(stat -c %s "$fit")" -le 37486592 || { echo "FIT overlaps GPT/partitions" >&2; exit 1; }
     mountpoint=$(mktemp -d)
     cleanup() { sudo umount "$mountpoint" 2>/dev/null || true; sudo rmdir "$mountpoint" 2>/dev/null || true; }
     trap cleanup EXIT
     sudo mount "${bootdev}1" "$mountpoint"
-    test "$(df --output=avail -B1 "$mountpoint" | tail -n 1)" -ge $((
-        $(stat -c %s "$kernel") + $(stat -c %s "$ramdisk") +
-        $(stat -c %s "$systemd_ramdisk") + $(stat -c %s "$dtb") +
-        $(stat -c %s "$extlinux")
-    )) || { echo "insufficient free space on ${bootdev}1" >&2; exit 1; }
-    sudo install -m 0644 "$kernel" "$mountpoint/Image"
-    sudo install -m 0644 "$ramdisk" "$mountpoint/initramfs.cpio.gz"
-    sudo install -m 0644 "$systemd_ramdisk" "$mountpoint/initramfs-systemd.cpio.gz"
-    sudo install -m 0644 "$dtb" "$mountpoint/sun55iw3p1-soc-system.dtb"
-    sudo mkdir -p "$mountpoint/extlinux"
-    sudo install -m 0644 "$extlinux" "$mountpoint/extlinux/extlinux.conf"
+    test "$(df --output=avail -B1 "$mountpoint" | tail -n 1)" -ge "$(du -sb "$esp_tree" | cut -f1)" || {
+        echo "insufficient free space on ${bootdev}1" >&2; exit 1;
+    }
+    sudo rm -rf "$mountpoint/EFI" "$mountpoint/loader" "$mountpoint/extlinux" \
+        "$mountpoint/Image" "$mountpoint/initramfs.cpio.gz" \
+        "$mountpoint/initramfs-systemd.cpio.gz" "$mountpoint/sun55iw3p1-soc-system.dtb"
+    sudo cp -a "$esp_tree/." "$mountpoint/"
     sync
     sudo umount "$mountpoint"
+    sudo sfdisk --part-type "$target" 1 c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+    sudo blockdev --rereadpt "$target"
     sudo dd if="$spl" of="$target" bs=512 seek=256 conv=notrunc,fsync status=progress
     sudo dd if="$fit" of="$target" bs=512 seek=512 conv=notrunc,fsync status=progress
     spl_size=$(stat -c %s "$spl")
@@ -101,11 +104,7 @@ flash-mainline target:
     sudo dd if="$target" bs=512 skip=256 count=$(((spl_size + 511) / 512)) status=none | cmp -n "$spl_size" - "$spl"
     sudo dd if="$target" bs=512 skip=512 count=$(((fit_size + 511) / 512)) status=none | cmp -n "$fit_size" - "$fit"
     sudo mount -o ro "${bootdev}1" "$mountpoint"
-    cmp "$kernel" "$mountpoint/Image"
-    cmp "$ramdisk" "$mountpoint/initramfs.cpio.gz"
-    cmp "$systemd_ramdisk" "$mountpoint/initramfs-systemd.cpio.gz"
-    cmp "$dtb" "$mountpoint/sun55iw3p1-soc-system.dtb"
-    cmp "$extlinux" "$mountpoint/extlinux/extlinux.conf"
+    sudo diff -qr "$esp_tree" "$mountpoint"
     sudo umount "$mountpoint"
     echo "incremental mainline flash verified: $target"
 
@@ -145,8 +144,11 @@ bootimg-reference:
     {{profile_dir}}/board/android_image/build-p3 --original-ramdisk
 
 # Assemble the complete SD-card image from the selected profile's artifacts.
-image: env bootimg rootfs-image
-    {{profile_dir}}/image/assemble-sd-image
+image: mainline-image
 
 summary:
-    mkosi --directory={{project}} --profile={{profile}} summary
+    mkosi --directory={{project}} --profile={{profile}},mainline summary
+
+# Build the shared TG5050 userspace with the vendor BSP module overlay.
+bsp-rootfs-tree:
+    sudo mkosi --directory={{project}} --profile={{profile}},bsp --force

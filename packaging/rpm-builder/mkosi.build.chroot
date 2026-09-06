@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+mkdir -p /var/tmp/sources /var/tmp/rpmbuild
+
+# rpmbuild expects URL sources to already exist in SOURCES. The host-side
+# download cache is mounted read-only by mkosi, using the exact RPM filenames.
+cp src/downloads/v7.2-rc3.tar.gz /var/tmp/sources/v7.2-rc3.tar.gz
+cp src/downloads/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz \
+    /var/tmp/sources/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
+
+# Materialize the local RPM inputs. Source2 supplies the board integration
+# repository; the Patch preambles still need individual patch files in SOURCES.
+for patch in src/rpm/sources/0*.patch; do
+    cp "$patch" "/var/tmp/sources/$(basename "$patch")"
+done
+cp src/rpm/sources/trimui.config /var/tmp/sources/trimui.config
+cp src/rpm/sources/required.config /var/tmp/sources/required.config
+
+rpmbuild -bb \
+    --define '_topdir /var/tmp/rpmbuild' \
+    --define '_sourcedir /var/tmp/sources' \
+    --define "_rpmdir $PACKAGEDIR" \
+    --define '_build_name_fmt %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}.rpm' \
+    --define '_binary_payload w3T.xzdio' \
+    src/rpm/kernel-tg5050.spec

@@ -1,0 +1,23 @@
+From d5a3f6eeb58e4598f73bc2d121b7e545f4fde919 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Fri, 31 Jul 2026 09:39:09 +0000
+Subject: [PATCH 7/9] power: axp: fix AXP717(B/C) dcdc4 max voltage (3700 ->
+ 3400 mV)
+
+The X-Powers AXP717B/AXP717C datasheet (REG86, DCDC4 voltage setting) enumerates 00000=1.0V .. 11000=3.4V, 11001~11111 reserved -> real max is 3400 mV, not the 3700 mV in the table. Confirmed independently by SyterKit's AXP2202 table (1000/3400/100). The AXP2202 (this board's main PMIC) IS AXP717B/C silicon, so it shares this map. Cap dcdc4 so set_value() rejects unsupported >3.4V requests.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/drivers/power/regulator/axp_regulator.c b/drivers/power/regulator/axp_regulator.c
+index ed24b2a3a2d..a3bb16a0122 100644
+--- a/drivers/power/regulator/axp_regulator.c
++++ b/drivers/power/regulator/axp_regulator.c
+@@ -247,7 +247,7 @@ static const struct axp_regulator_plat axp717_regulators[] = {
+ 	{ "dcdc1", 0x80, BIT(0), 0x83, 0x7f,  500, 1540,  10, 70 },
+ 	{ "dcdc2", 0x80, BIT(1), 0x84, 0x7f,  500, 1540,  10, 70 },
+ 	{ "dcdc3", 0x80, BIT(2), 0x85, 0x7f,  500, 1840,  10, 70 },
+-	{ "dcdc4", 0x80, BIT(3), 0x86, 0x7f, 1000, 3700, 100, NA },
++	{ "dcdc4", 0x80, BIT(3), 0x86, 0x7f, 1000, 3400, 100, NA },
+ 	{ "aldo1", 0x90, BIT(0), 0x93, 0x1f,  500, 3500, 100, NA },
+ 	{ "aldo2", 0x90, BIT(1), 0x94, 0x1f,  500, 3500, 100, NA },
+ 	{ "aldo3", 0x90, BIT(2), 0x95, 0x1f,  500, 3500, 100, NA },

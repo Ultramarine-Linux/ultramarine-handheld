@@ -1,0 +1,198 @@
+From 522c63b03e7840bb23a8350583cd40b0500b0284 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Fri, 31 Jul 2026 09:33:35 +0000
+Subject: [PATCH 6/9] sunxi: Trimui Smart Pro S U-Boot control DTB (real PMIC
+ @0x34)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Stop reusing the avaota-a1 control DTB, whose PMIC sits at 0x35 with x-powers,axp717 — wrong for this board, so U-Boot proper's DM regulator path was talking to the wrong I2C address and could not manage the microSD power rail. This minimal Trimui control DTB describes the real hardware: AXP2202 @0x34 + AXP1530 @0x36 on r_i2c0 (using the compatibles added in the previous commit), microSD (mmc0) vmmc-supply = cldo3 forced always-on so the card is powered regardless of DM enable ordering, 3.3V default-speed SD (no UHS 1.8V switch) for bring-up, eMMC disabled. Points trimui-tg5050_defconfig at it.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/configs/trimui-tg5050_defconfig b/configs/trimui-tg5050_defconfig
+index c5d5d5fd1bb..29a67d17348 100644
+--- a/configs/trimui-tg5050_defconfig
++++ b/configs/trimui-tg5050_defconfig
+@@ -1,6 +1,6 @@
+ CONFIG_ARM=y
+ CONFIG_ARCH_SUNXI=y
+-CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-t527-avaota-a1"
++CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-a523-trimui-smart-pro-s"
+ CONFIG_SPL=y
+ CONFIG_DRAM_SUNXI_DX_ODT=0x07070707
+ CONFIG_DRAM_SUNXI_DX_DRI=0x0d0d0d0d
+diff --git a/dts/upstream/src/arm64/allwinner/sun55i-a523-trimui-smart-pro-s.dts b/dts/upstream/src/arm64/allwinner/sun55i-a523-trimui-smart-pro-s.dts
+new file mode 100644
+index 00000000000..350bc858e5c
+--- /dev/null
++++ b/dts/upstream/src/arm64/allwinner/sun55i-a523-trimui-smart-pro-s.dts
+@@ -0,0 +1,167 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++/*
++ * U-Boot control DTB for the Trimui Smart Pro S (Allwinner A523 / sun55iw3p1).
++ * Minimal: console UART0, microSD (mmc0), and the two on-board PMICs —
++ * AXP2202 @0x34 (main) + AXP1530 @0x36 (secondary CPU buck) on r_i2c0 — so
++ * U-Boot's DM regulators program the REAL chip at the RIGHT address. The avaota
++ * control DTB we were reusing puts the PMIC at 0x35 (wrong for this board) and
++ * uses x-powers,axp717; here it is 0x34 + x-powers,axp2202 (aliased to the
++ * axp717 register map in U-Boot's driver). The SD power rail (cldo3) is forced
++ * always-on so the card is powered regardless of DM enable ordering.
++ */
++
++/dts-v1/;
++
++#include "sun55i-a523.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/irq.h>
++
++/ {
++	model = "Trimui Smart Pro S";
++	compatible = "trimui,smart-pro-s", "allwinner,sun55i-a523";
++
++	aliases {
++		serial0 = &uart0;
++		mmc0 = &mmc0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board-wide 5V (battery / USB-C) */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&r_i2c0 {
++	status = "okay";
++
++	axp2202: pmic@34 {
++		compatible = "x-powers,axp2202";
++		reg = <0x34>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++		vin4-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* little CPU cluster (cpu0-3) */
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpul";
++			};
++			/* GPU / VE */
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <920000>;
++				regulator-max-microvolt = <920000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++			/* LPDDR4 */
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1100000>;
++				regulator-max-microvolt = <1100000>;
++				regulator-name = "vdd-dram";
++			};
++			/* this PMIC's own I2C/PL pins */
++			reg_aldo3: aldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-pl";
++			};
++			/* SD vqmmc-1.8 (unused here; kept 3.3V default-speed SD) */
++			reg_cldo1: cldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pc-1v8";
++			};
++			/* SD vmmc-3.3 — forced on so the card is always powered */
++			reg_cldo3: cldo3 {
++				regulator-always-on;
++				regulator-boot-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-io-sd";
++			};
++			reg_cpusldo: cpusldo {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-cpus";
++			};
++		};
++	};
++
++	axp1530: pmic@36 {
++		compatible = "x-powers,axp1530";
++		reg = <0x36>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		status = "okay";
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* big CPU cluster (cpu4-7) */
++			reg_ext_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpub";
++			};
++			reg_ext_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "axp1530-dcdc2";
++			};
++			reg_ext_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <1000000>;
++				regulator-name = "axp1530-dcdc3";
++			};
++		};
++	};
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_cldo3>;
++	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; /* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++/* eMMC off for SD-only bring-up */
++&mmc2 {
++	status = "disabled";
++};

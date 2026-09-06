@@ -1,0 +1,29 @@
+From d9414644331caec38402cdc7927d17f75d62e75a Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 5 Aug 2026 11:11:23 +0000
+Subject: [PATCH 8/9] sunxi: A523: read the U-Boot FIT from the configured raw
+ sector
+
+board_spl_mmc_get_uboot_raw_sector() computed sector = max(raw_sect,
+spl_size/512), but sunxi_get_spl_size() returns a bogus value on the A523,
+yielding sector ~0xe000 (28 MiB) instead of the configured location. The SPL
+then read garbage instead of the FIT, found no image, and jumped to an empty
+load address (silent hang). Return the configured
+CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR directly; it is deterministic for the
+128 KiB SD boot layout (SPL @128K, FIT @256K).
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/arch/arm/mach-sunxi/board.c b/arch/arm/mach-sunxi/board.c
+index 301ac2c4619..2f1e49091af 100644
+--- a/arch/arm/mach-sunxi/board.c
++++ b/arch/arm/mach-sunxi/board.c
+@@ -356,7 +356,7 @@ unsigned long board_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+ 	unsigned long spl_size = sunxi_get_spl_size();
+ 	unsigned long sector;
+ 
+-	sector = max(raw_sect, spl_size / 512);
++	sector = raw_sect; (void)spl_size; /* FIT at fixed RAW_MODE sector */
+ 	return sector; /* A523 deterministic 128K boot */
+ 
+ 	switch (sunxi_get_boot_source()) {

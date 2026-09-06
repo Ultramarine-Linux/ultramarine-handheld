@@ -1,0 +1,53 @@
+From a7c56ef53179eabc22fd6f75f98751df90854aae Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Fri, 31 Jul 2026 09:14:18 +0000
+Subject: [PATCH 5/9] power: axp: add AXP2202 + AXP1530 (Trimui Smart Pro S
+ A523 PMICs)
+
+The Trimui Smart Pro S carries an AXP2202 (main, 0x34) + AXP1530 (secondary big-cluster CPU buck, 0x36) on r_i2c0. Neither has a mainline Linux/U-Boot register map, so alias to the closest proven siblings: AXP2202 -> AXP717 tables (same sun55i generation; the SPL already drives DCDC3/DRAM through that map on real hardware), AXP1530 -> AXP313/323 tables (the live rail set dcdc1-3/aldo1/dldo1 matches exactly). Add the enum IDs, DM PMIC compatibles, and regulator-table mappings. cldo* (SD vmmc/vqmmc) reg-compatibility to confirm on HW.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/drivers/power/pmic/axp.c b/drivers/power/pmic/axp.c
+index 7d8348b0769..fe759e19cbb 100644
+--- a/drivers/power/pmic/axp.c
++++ b/drivers/power/pmic/axp.c
+@@ -95,6 +95,8 @@ static const struct udevice_id axp_pmic_ids[] = {
+ 	{ .compatible = "x-powers,axp806", .data = AXP806_ID },
+ 	{ .compatible = "x-powers,axp809", .data = AXP809_ID },
+ 	{ .compatible = "x-powers,axp813", .data = AXP813_ID },
++	{ .compatible = "x-powers,axp2202", .data = AXP2202_ID },
++	{ .compatible = "x-powers,axp1530", .data = AXP1530_ID },
+ 	{ .compatible = "x-powers,axp318w", .data = AXP318_ID },
+ 	{ }
+ };
+diff --git a/drivers/power/regulator/axp_regulator.c b/drivers/power/regulator/axp_regulator.c
+index 16d3a8f7f90..ed24b2a3a2d 100644
+--- a/drivers/power/regulator/axp_regulator.c
++++ b/drivers/power/regulator/axp_regulator.c
+@@ -374,6 +374,12 @@ static const struct axp_regulator_plat *const axp_regulators[] = {
+ 	[AXP806_ID]	= axp806_regulators,
+ 	[AXP809_ID]	= axp809_regulators,
+ 	[AXP813_ID]	= axp813_regulators,
++	/* AXP2202: no mainline map exists; it is register-compatible with the AXP717
++	 * (same sun55i generation) and the SPL already drives it via that map for
++	 * DCDC3/DRAM. Confirm cldo* (SD vmmc/vqmmc) on hardware. */
++	[AXP2202_ID]	= axp717_regulators,
++	/* AXP1530: AXP313/323 family (live rail set dcdc1-3 / aldo1 / dldo1 matches). */
++	[AXP1530_ID]	= axp313_regulators,
+ };
+ 
+ static int axp_regulator_bind(struct udevice *dev)
+diff --git a/include/axp_pmic.h b/include/axp_pmic.h
+index 2f547da74c2..18c0aaa1f74 100644
+--- a/include/axp_pmic.h
++++ b/include/axp_pmic.h
+@@ -39,6 +39,8 @@ enum {
+ 	AXP806_ID,
+ 	AXP809_ID,
+ 	AXP813_ID,
++	AXP2202_ID,
++	AXP1530_ID,
+ 	AXP318_ID,
+ };
+ 

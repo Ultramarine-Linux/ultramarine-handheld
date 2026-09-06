@@ -1,0 +1,104 @@
+name: ARM64 RPM builds
+
+on:
+  push:
+    paths:
+      - "packaging/rpm/**"
+      - "packaging/rpm-builder/**"
+      - "packaging/rpm-builder-uboot/**"
+      - ".github/workflows/rpm-arm64.yml"
+  pull_request:
+    paths:
+      - "packaging/rpm/**"
+      - "packaging/rpm-builder/**"
+      - "packaging/rpm-builder-uboot/**"
+      - ".github/workflows/rpm-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arm64-rpm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kernel:
+    name: kernel-tg5050 (Fedora ARM64 mkosi)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install mkosi and host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes systemd-container python3-pip curl
+          python3 -m pip install --break-system-packages mkosi
+
+      - name: Prefetch RPM sources
+        run: |
+          set -eux
+          mkdir -p build/rpm-sources
+          curl --fail --location --retry 3 \
+            -o build/rpm-sources/v7.2-rc3.tar.gz \
+            https://github.com/torvalds/linux/archive/refs/tags/v7.2-rc3.tar.gz
+          curl --fail --location --retry 3 \
+            -o build/rpm-sources/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz \
+            https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
+
+      - name: Build kernel RPMs in Fedora ARM64 mkosi
+        run: |
+          sudo mkosi --directory=packaging/rpm-builder \
+            --incremental=yes --force build
+
+      - name: Upload kernel RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-tg5050-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            build/rpm-output/*.rpm
+            build/rpm-output/*.buildinfo
+            build/rpm-output/*.src.rpm
+
+  uboot:
+    name: uboot-images-tg5050 (Fedora ARM64 mkosi)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install mkosi and host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes systemd-container python3-pip curl
+          python3 -m pip install --break-system-packages mkosi
+
+      - name: Prefetch RPM sources
+        run: |
+          set -eux
+          mkdir -p build/rpm-sources
+          curl --fail --location --retry 3 \
+            -o build/rpm-sources/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz \
+            https://github.com/u-boot/u-boot/archive/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz
+          curl --fail --location --retry 3 \
+            -o build/rpm-sources/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz \
+            https://github.com/jernejsk/arm-trusted-firmware/archive/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz
+
+      - name: Build U-Boot RPM in Fedora ARM64 mkosi
+        run: |
+          sudo mkosi --directory=packaging/rpm-builder-uboot \
+            --incremental=yes --force build
+
+      - name: Upload U-Boot RPM and boot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: uboot-images-tg5050-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            build/rpm-output/*.rpm
+            build/rpm-output/*.buildinfo
+            build/rpm-output/*.src.rpm

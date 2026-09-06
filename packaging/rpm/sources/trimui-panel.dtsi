@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+// Copyright (C) 2026 Midgy BALON
+/*
+ * Trimui Smart Pro S - MIPI-DSI panel + backlight + DSI1 + combo-PHY fragment.
+ *
+ * Progress (see docs/DISPLAY-PORT-STATUS.md):
+ *   DONE  - MIPI-DSI host:  allwinner,sun55i-a523-mipi-dsi variant added to
+ *           drm/sun4i sun6i_mipi_dsi (kernel/patches/0001), compiles.
+ *   DONE  - combo-D-PHY:    phy-sun55i-dsi-combo driver (kernel/drivers/),
+ *           compatible allwinner,sun55i-a523-dsi-combo-phy, compiles.
+ *   DONE  - SoC dtsi nodes: dsi1/dsi1_combo_phy/tcon1 (+ de/dpss_top skeletons)
+ *           added to sun55i-a523.dtsi (kernel/patches/0003); these &labels now
+ *           exist and the board DTS can #include this fragment.
+ *   DONE  - TCON-LCD sun55i compat: allwinner,sun55i-a523-tcon-lcd added to
+ *           drm/sun4i sun4i_tcon (kernel/patches/0004), compiles.
+ *   TODO  - DE3.5 mixer/CRTC driver: no mainline driver exists, so there is no
+ *           CRTC to feed the TCON yet -> nothing lights up. The de@5000000 /
+ *           display-top@5500000 nodes are disabled skeletons until then.
+ * This fragment captures the verified board facts (pins, lanes, rails, reset,
+ * the full panel init blob, OF graph). The DSI host, combo-PHY and TCON-LCD1
+ * compatibles are real; only the panel compatible remains a PLACEHOLDER that a
+ * small dedicated panel driver will own. See docs/DISPLAY-PORT-STATUS.md.
+ *
+ * Verified board facts encoded below (from the vendor DTB + A523 UM):
+ *   panel : 720x1280 portrait, RGB888, 4-lane MIPI-DSI on DSI1, ~62 MHz pixel
+ *   reset : PD22, vendor "active", 120 ms reset delay
+ *   rails : power0 = AXP2202 cldo4, power1 = AXP2202 cldo1 (VERIFY voltages)
+ *   bl    : pwm0 ch0 on PD23, period 50000 ns, default level 0x32
+ *   dsi1  : dsi1@5508000, lane pins PD10-PD19, combo-PHY @ 5509000
+ * ==========================================================================
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		/* pwm0 (pwm0@2000c00) channel 0, period 50000 ns, normal polarity */
+		pwms = <&pwm0 0 50000 0>;
+		brightness-levels = <
+			  0   1   2   3   4   5   6   7   8   9
+			 10  11  12  13  14  15  16  17  18  19
+			 20  21  22  23  24  25  26  27  28  29
+			 30  31  32  33  34  35  36  37  38  39
+			 40  41  42  43  44  45  46  47  48  49
+			 50  51  52  53  54  55  56  57  58  59
+			 60  61  62  63  64  65  66  67  68  69
+			 70  71  72  73  74  75  76  77  78  79
+			 80  81  82  83  84  85  86  87  88  89
+			 90  91  92  93  94  95  96  97  98  99
+			100 101 102 103 104 105 106 107 108 109
+			110 111 112 113 114 115 116 117 118 119
+			120 121 122 123 124 125 126 127 128 129
+			130 131 132 133 134 135 136 137 138 139
+			140 141 142 143 144 145 146 147 148 149
+			150 151 152 153 154 155 156 157 158 159
+			160 161 162 163 164 165 166 167 168 169
+			170 171 172 173 174 175 176 177 178 179
+			180 181 182 183 184 185 186 187 188 189
+			190 191 192 193 194 195 196 197 198 199
+			200 201 202 203 204 205 206 207 208 209
+			210 211 212 213 214 215 216 217 218 219
+			220 221 222 223 224 225 226 227 228 229
+			230 231 232 233 234 235 236 237 238 239
+			240 241 242 243 244 245 246 247 248 249
+			250 251 252 253 254 255>;
+		default-brightness-level = <50>;	/* 0x32 */
+	};
+};
+
+/*
+ * PWM channel-0 output pin for the backlight: PD23, mux "pwm0_0".
+ * (Pin group lives under the SoC pinctrl; declared here for reference - move it
+ * next to the other pinctrl groups in the board/SoC dtsi when wiring up.)
+ */
+&pio {
+	pwm0_pd23_pin: pwm0-pd23-pin {
+		pins = "PD23";
+		function = "pwm0";	/* vendor: "pwm0_0" */
+		allwinner,pinmux = <2>;	/* PD23 Function2 = PWM0 */
+		drive-strength = <10>;
+	};
+
+	pwm0_pb6_pin: pwm0-pb6-pin {
+		pins = "PB6";
+		function = "pwm0";	/* PB6 Function5 = PWM10 (fan) */
+		allwinner,pinmux = <5>;
+		drive-strength = <10>;
+	};
+
+	pwm0_pk23_pin: pwm0-pk23-pin {
+		pins = "PK23";
+		function = "pwm0";	/* PK23 Function4 = PWM7 (vibrator) */
+		allwinner,pinmux = <4>;
+		drive-strength = <10>;
+	};
+
+	/* DSI1 4-lane data/clock pins: PD10..PD19, mux "dsi1" */
+	dsi1_4lane_pins: dsi1-4lane-pins {
+		pins = "PD10", "PD11", "PD12", "PD13", "PD14",
+		       "PD15", "PD16", "PD17", "PD18", "PD19";
+		function = "dsi1";
+		allwinner,pinmux = <4>;	/* PD10..19 Function4 = DSI1 */
+		drive-strength = <30>;
+		bias-disable;
+	};
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_pd23_pin>, <&pwm0_pb6_pin>, <&pwm0_pk23_pin>;
+	status = "okay";
+};
+
+/*
+ * MIPI-DSI host 1 @ 0x05508000 (sun55iw3). The node, its clocks/resets and the
+ * input port now live in sun55i-a523.dtsi (kernel/patches/0003); this fragment
+ * only enables it and attaches the board pinmux + panel child. Driver:
+ * drm/sun4i sun6i_mipi_dsi, compatible allwinner,sun55i-a523-mipi-dsi.
+ */
+&dsi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dsi1_4lane_pins>;
+	/*
+	 * Combo D-PHY @ 0x05509000 (declared in the SoC dtsi) owns the integrated
+	 * DISPLL that generates the lane clock; the host hands it the rate via
+	 * phy_configure(). Driver: phy-sun55i-dsi-combo (PHY_SUN55I_DSI_COMBO).
+	 */
+	status = "okay";
+
+	panel@0 {
+		/*
+		 * Ilitek/Fitipower-class DSI DDIC (0xFF MCS-unlock signature
+		 * 87 56 01). Driver: panel-trimui-smart-pro-s, which carries the
+		 * mode (720x1280@60), 4 lanes, RGB888 and the init/exit DCS blobs.
+		 */
+		compatible = "trimui,smart-pro-s-panel";
+		reg = <0>;
+
+		/* Panel reset PD22; 120 ms settle handled by the driver. */
+		reset-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>;	/* PD22 */
+
+		/*
+		 * Power rails (vendor DTB): power0 = AXP2202 cldo4,
+		 * power1 = AXP2202 cldo1. VERIFY voltages on HW (cldo1 may be
+		 * the shared 1.8 V also used for MMC VQMMC).
+		 */
+		power0-supply = <&reg_cldo4>;
+		power1-supply = <&reg_cldo1>;
+
+		backlight = <&backlight>;
+	};
+};
+
+/*
+ * TCON-LCD1 @ 0x05502000 - timing controller feeding DSI1 (single link).
+ * Node + clocks/resets/ports live in sun55i-a523.dtsi (kernel/patches/0003),
+ * compatible allwinner,sun55i-a523-tcon-lcd (kernel/patches/0004). The OF graph
+ * (de -> tcon1 -> dsi1) is wired there; here we only enable it.
+ *
+ * NOTE: tcon1 has no usable CRTC upstream of it yet - the DE3.5 mixer/CRTC
+ * driver does not exist in mainline. The TCON-LCD and DSI/PHY can probe, but
+ * with no CRTC there is no source to drive a scanout, so nothing lights up yet.
+ */
+&tcon1 {
+	status = "okay";
+};
+
+/*
+ * Combo D-PHY @ 0x05509000. Node lives in the SoC dtsi (sun55i-a523.dtsi),
+ * compatible allwinner,sun55i-a523-dsi-combo-phy; driver phy-sun55i-dsi-combo.
+ * Enable it so the DSI host can request the HS lane clock.
+ *
+ * Pipeline OF graph:  de@5000000 -> tcon1@5502000 -> dsi1@5508000 -> panel
+ */
+&dsi1_combo_phy {
+	status = "okay";
+};

@@ -1,0 +1,22 @@
+From 9b8e5fd91c680729e9da288ba4859e5ce27b49cb Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 29 Jul 2026 00:12:16 +0200
+Subject: [PATCH 3/9] sunxi: deterministic raw U-Boot sector for A523 128 KiB
+ boot
+
+The high-boot auto-shift in board_spl_mmc_get_uboot_raw_sector() does not land correctly on the A523; return the computed sector directly so the SPL finds U-Boot at the configured RAW_MODE sector (0x200) when SPL is written at 128 KiB.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/arch/arm/mach-sunxi/board.c b/arch/arm/mach-sunxi/board.c
+index 432b1c10f92..301ac2c4619 100644
+--- a/arch/arm/mach-sunxi/board.c
++++ b/arch/arm/mach-sunxi/board.c
+@@ -357,6 +357,7 @@ unsigned long board_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+ 	unsigned long sector;
+ 
+ 	sector = max(raw_sect, spl_size / 512);
++	return sector; /* A523 deterministic 128K boot */
+ 
+ 	switch (sunxi_get_boot_source()) {
+ 	case SUNXI_BOOTED_FROM_MMC0_HIGH:

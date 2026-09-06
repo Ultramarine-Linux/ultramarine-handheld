@@ -6,7 +6,3 @@ unit: sectors
 first-lba: 73728
 last-lba: 12582878
 sector-size: 512
-
-# Seed p4 as the final direct system root. systemd-repart allocates p1-p3 in
-# the free prefix; vendor U-Boot resolves root_partition=rootfs to this slot.
-/dev/loop0p4 : start=2400256, size=10182623, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, uuid=693B9ABA-2FC7-4222-9BD9-D2DC7B82099A, name="rootfs"

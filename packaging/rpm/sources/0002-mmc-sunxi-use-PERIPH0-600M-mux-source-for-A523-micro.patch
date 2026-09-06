@@ -1,0 +1,32 @@
+From f92fb2a9b0e0327aa12d6050b1dcacdbd607dc75 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 29 Jul 2026 00:12:16 +0200
+Subject: [PATCH 2/9] mmc: sunxi: use PERIPH0-600M mux source for A523 microSD
+ clock
+
+On this board the A523 microSD (SMHC0) module clock uses mux source 2 (PLL_PERIPH0_600M, hidden /2 -> 300 MHz); the mainline source 1 (PERIPH0_400M) reads back with zero consumers (gated off) on live hardware. Select src 2 for the high-speed SD module clock.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/drivers/mmc/sunxi_mmc.c b/drivers/mmc/sunxi_mmc.c
+index 84f4e4c2198..25f652305e1 100644
+--- a/drivers/mmc/sunxi_mmc.c
++++ b/drivers/mmc/sunxi_mmc.c
+@@ -108,9 +108,15 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
+ 		 * MMC0/1, and 600 * hidden2 / 3 * 2 for MMC2.
+ 		 */
+ 		if (IS_ENABLED(CONFIG_MACH_SUN55I_A523)) {
+-			pll_hz /= 3;
+-			if (priv->mmc_no == 2)
++			if (priv->mmc_no == 2) {
++				pll_hz /= 3;
+ 				pll_hz *= 2;
++			} else {
++				/* SD: vendor uses mux src 2 = PLL_PERIPH0_600M
++				 * (src 1 / PERIPH0_400M is gated off); hidden /2. */
++				pll = 0x2U << 24;
++				pll_hz /= 2;
++			}
+ 		}
+ 	}
+ 

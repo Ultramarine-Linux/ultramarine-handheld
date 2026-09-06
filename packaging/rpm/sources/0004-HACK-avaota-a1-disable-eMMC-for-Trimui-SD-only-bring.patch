@@ -1,0 +1,20 @@
+From dc07186b4267457ddc3f7b64112ae98342d16e93 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 29 Jul 2026 00:12:17 +0200
+Subject: [PATCH 4/9] HACK: avaota-a1: disable eMMC for Trimui SD-only bring-up
+
+Bring-up-only: the Trimui reuses the avaota-a1 base DTB; disable mmc2 (eMMC) so U-Boot does not probe it during SD-card bring-up. Not for upstream.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/dts/upstream/src/arm64/allwinner/sun55i-t527-avaota-a1.dts b/dts/upstream/src/arm64/allwinner/sun55i-t527-avaota-a1.dts
+index 054d0357c13..5620c11a300 100644
+--- a/dts/upstream/src/arm64/allwinner/sun55i-t527-avaota-a1.dts
++++ b/dts/upstream/src/arm64/allwinner/sun55i-t527-avaota-a1.dts
+@@ -386,3 +386,6 @@
+ 	usb0_vbus_det-gpios = <&pio 8 13 GPIO_ACTIVE_HIGH>; /* PI13 */
+ 	status = "okay";
+ };
++
++/* Trimui: eMMC off for SD bring-up */
++&mmc2 { status = "disabled"; };

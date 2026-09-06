@@ -45,6 +45,11 @@ git submodule update --init --recursive
 just --justfile mkosi.profiles/tg5050/justfile mainline-image
 ```
 
+The mkosi configuration is composed from a shared board profile and a boot
+stack overlay. Use `--profile=tg5050,mainline` for the mainline kernel,
+systemd-boot ESP, and matching modules, or `--profile=tg5050,bsp` for the
+vendor BSP module tree.
+
 This applies the pinned TG5050 patchset, validates required built-in drivers,
 builds the kernel and modules, builds the three out-of-tree AIC8800 modules,
 stages the stock firmware in the driver's flat runtime layout, builds both the

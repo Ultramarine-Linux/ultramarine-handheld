@@ -1,0 +1,46 @@
+From 5aba21a6115614d9d7d1ba97ae87a90ecfe6f61c Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Sun, 21 Jun 2026 09:03:33 +0000
+Subject: [PATCH] arm64: dts: allwinner: sun55i-a523: add audio codec
+
+Add the audio-codec@7110000 node for the A523 internal audio codec
+(allwinner,sun55i-a523-codec): MCU-CCU apb/dac/adc clocks, MCU-CCU reset,
+mcu_dma DRQ 7 (tx/rx) and IRQ 190. Clock-names (apb/dac/adc) and reg span
+match Chen-Yu Tsai's sun4i-codec A523 variant (has_split_clks; max_register
+0x348). Disabled by default; boards enable it, wire the card and add the
+analog supply.
+
+Signed-off-by: Midgy BALON <midgy971@gmail.com>
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index 5afa8d92a..d6e5adfa2 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -991,6 +991,21 @@ mcu_ccu: clock-controller@7102000 {
+ 			#reset-cells = <1>;
+ 		};
+
++		codec: audio-codec@7110000 {
++			compatible = "allwinner,sun55i-a523-codec";
++			reg = <0x07110000 0x400>;
++			interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&mcu_ccu CLK_BUS_MCU_AUDIO_CODEC>,
++				 <&mcu_ccu CLK_MCU_AUDIO_CODEC_DAC>,
++				 <&mcu_ccu CLK_MCU_AUDIO_CODEC_ADC>;
++			clock-names = "apb", "dac", "adc";
++			resets = <&mcu_ccu RST_BUS_MCU_AUDIO_CODEC>;
++			dmas = <&mcu_dma 7>, <&mcu_dma 7>;
++			dma-names = "tx", "rx";
++			#sound-dai-cells = <0>;
++			status = "disabled";
++		};
++
+ 		i2s0: i2s@7112000 {
+ 			compatible = "allwinner,sun55i-a523-i2s",
+ 				     "allwinner,sun50i-r329-i2s";
+-- 
+2.39.5
+

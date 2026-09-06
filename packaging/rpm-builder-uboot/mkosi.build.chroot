@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+mkdir -p /var/tmp/sources /var/tmp/rpmbuild
+cp src/downloads/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz /var/tmp/sources/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz
+cp src/downloads/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz /var/tmp/sources/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz
+cp src/rpm/sources/trimui-tg5050_defconfig /var/tmp/sources/trimui-tg5050_defconfig
+for patch in src/rpm/sources/uboot/*.patch; do
+    cp "$patch" "/var/tmp/sources/$(basename "$patch")"
+done
+
+rpmbuild -bb \
+    --define '_topdir /var/tmp/rpmbuild' \
+    --define '_sourcedir /var/tmp/sources' \
+    --define "_rpmdir $PACKAGEDIR" \
+    --define '_build_name_fmt %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}.rpm' \
+    --define '_binary_payload w3T.xzdio' \
+    src/rpm/uboot-images-tg5050.spec

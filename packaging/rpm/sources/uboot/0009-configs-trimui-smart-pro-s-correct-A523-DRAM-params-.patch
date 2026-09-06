@@ -1,0 +1,52 @@
+From a8bb626aea0b0b96e5945ce905e29e85186fc886 Mon Sep 17 00:00:00 2001
+From: Midgy BALON <midgy971@gmail.com>
+Date: Wed, 5 Aug 2026 11:11:24 +0000
+Subject: [PATCH 9/9] configs: trimui-smart-pro-s: correct A523 DRAM params and
+ FIT sector
+
+The hand-decoded LPDDR4 timings (TPR2/6/10/11/12) failed DRAM training
+("DRAM test failure ... 0 MiB"). Use the values proven on the Radxa Cubie A5E
+(same A523 SoC + LPDDR4); the controller auto-sizes correctly (1 GiB on this
+board). Also set CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR=0x200 (FIT flashed at
+256 KiB) and CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_DATA_PART_OFFSET=0x0 so the SPL
+reads the FIT header at exactly 256 KiB. With these, the board boots
+SPL -> BL31 -> U-Boot -> mainline Linux to a shell.
+
+Assisted-by: Claude (Opus 4.8)
+
+diff --git a/configs/trimui-tg5050_defconfig b/configs/trimui-tg5050_defconfig
+index 29a67d17348..1df8c5ed37f 100644
+--- a/configs/trimui-tg5050_defconfig
++++ b/configs/trimui-tg5050_defconfig
+@@ -8,15 +8,16 @@ CONFIG_DRAM_SUNXI_CA_DRI=0x0e0e
+ CONFIG_DRAM_SUNXI_ODT_EN=0x84848484
+ CONFIG_DRAM_SUNXI_TPR0=0x80808080
+ CONFIG_DRAM_SUNXI_TPR1=0x06060606
+-CONFIG_DRAM_SUNXI_TPR2=0x1f090503
+-CONFIG_DRAM_SUNXI_TPR6=0x3a000000
+-CONFIG_DRAM_SUNXI_TPR10=0x862f3333
+-CONFIG_DRAM_SUNXI_TPR11=0xc0c0bbbf
+-CONFIG_DRAM_SUNXI_TPR12=0x35352f31
++CONFIG_DRAM_SUNXI_TPR6=0x38000000
++CONFIG_DRAM_SUNXI_TPR10=0x802f3333
++CONFIG_DRAM_SUNXI_TPR11=0xc7c5c4c2
++CONFIG_DRAM_SUNXI_TPR12=0x3533302f
+ CONFIG_MACH_SUN55I_A523=y
+ CONFIG_MMC_SUNXI_SLOT_EXTRA=2
+ CONFIG_R_I2C_ENABLE=y
+ # CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR=0x200
++CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_DATA_PART_OFFSET=0x0
+ CONFIG_SPL_I2C=y
+ CONFIG_SPL_SYS_I2C_LEGACY=y
+ CONFIG_SYS_I2C_MVTWSI=y
+@@ -27,9 +28,7 @@ CONFIG_SUN8I_EMAC=y
+ CONFIG_PHY_REALTEK=y
+ CONFIG_REGULATOR_AXP=y
+ CONFIG_AXP717_POWER=y
+-CONFIG_AXP_I2C_ADDRESS=0x34
+ CONFIG_AXP_DCDC2_VOLT=920
+-# DCDC3 = LPDDR4 VCC-DRAM, 1.10 V typ (datasheet Table 6-2); was 1160 (wrong)
+ CONFIG_AXP_DCDC3_VOLT=1100
+ CONFIG_USB_EHCI_HCD=y
+ CONFIG_USB_OHCI_HCD=y

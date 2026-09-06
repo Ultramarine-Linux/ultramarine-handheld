@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Stage the custom kernel and DTB; mkosi generates the initrd and module initrd.
+set -euo pipefail
+
+boot=$(realpath "${1:?usage: stage-systemd-boot <boot-tree>}")
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+profile=$(cd -- "$script_dir/.." && pwd)
+project=$(cd -- "$profile/../.." && pwd)
+build="$project/build"
+kernel="$build/mainline-src/linux/arch/arm64/boot/Image"
+dtb="$build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+
+for input in "$kernel" "$dtb"; do
+    test -f "$input" || { echo "missing boot input: $input" >&2; exit 1; }
+done
+
+mapfile -t releases < <(find "$build/mainline-module-tree/lib/modules" \
+    -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+(( ${#releases[@]} == 1 )) || {
+    printf 'expected exactly one kernel module release, found %d\n' "${#releases[@]}" >&2
+    exit 1
+}
+release=${releases[0]}
+
+rm -rf "$boot"
+mkdir -p "$boot/dtb-$release/allwinner" "$boot/loader/entries"
+install -m 0644 "$kernel" "$boot/vmlinuz-$release"
+install -m 0644 "$dtb" "$boot/dtb-$release/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+
+cat > "$boot/loader/loader.conf" <<EOF
+default ultramarine-$release.conf
+timeout 5
+console-mode keep
+editor no
+EOF
+cat > "$boot/loader/entries/ultramarine-$release.conf" <<EOF
+title Ultramarine Linux 44 (TG5050)
+version $release
+linux /tg5050-mainline/$release/vmlinuz
+initrd /tg5050-mainline/initrd
+initrd /tg5050-mainline/$release/kernel-modules.initrd
+devicetree /dtb-$release/allwinner/sun55i-a523-trimui-smart-pro-s.dtb
+options console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon root=/dev/mmcblk0p4 rootwait rdinit=/init loglevel=7 panic=10
+EOF
+
+printf 'staged kernel/DTB BLS tree; mkosi will generate initrd for %s\n' "$release"
