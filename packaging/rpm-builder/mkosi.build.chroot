@@ -20,7 +20,7 @@ cp src/rpm/sources/kernel/required.config /var/tmp/sources/required.config
 rpmbuild -bb \
     --define '_topdir /var/tmp/rpmbuild' \
     --define '_sourcedir /var/tmp/sources' \
-    --define '_rpmdir /work/artifacts' \
+    --define "_rpmdir $PACKAGEDIR" \
     --define '_build_name_fmt %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}.rpm' \
     --define '_binary_payload w3T.xzdio' \
     src/rpm/kernel-tg5050.spec
