@@ -8,7 +8,7 @@ project=$(cd -- "$profile/../.." && pwd)
 repo="$script_dir/trimui_mainline_dts"
 kernel_repo="$script_dir/linux"
 ksrc="$project/build/mainline-kernel-worktree"
-baseline=a13c140cc289c0b7b3770bce5b3ad42ab35074aa
+baseline=58e7295cfecaddec94629160386412e0f2b1e8fe
 dts="$ksrc/arch/arm64/boot/dts/allwinner"
 patches="$repo/kernel/patches"
 drivers="$repo/kernel/drivers"
@@ -19,7 +19,7 @@ export KBUILD_BUILD_TIMESTAMP
 KBUILD_BUILD_TIMESTAMP=$(git -C "$kernel_repo" show -s --format=%cD "$baseline")
 
 [[ $(git -C "$kernel_repo" rev-parse HEAD) == "$baseline" ]] || {
-    echo "Linux submodule is not pinned at v7.2-rc3 ($baseline)" >&2
+    echo "Linux submodule is not pinned at v7.2.3 ($baseline)" >&2
     exit 1
 }
 if [[ -e "$ksrc" ]]; then

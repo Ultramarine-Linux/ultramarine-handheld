@@ -4,7 +4,7 @@ Release:        1.tg5050%{?dist}
 Summary:        Fedora-style alternate mainline kernel for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/torvalds/linux
-Source0:        https://github.com/torvalds/linux/archive/refs/tags/v7.2-rc3.tar.gz
+Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.3.tar.xz
 Source2:        https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
 Source1000:      trimui.config
 Source1001:      required.config
@@ -31,7 +31,6 @@ Patch1019: 0022-thermal-sun8i-add-sun55i-a523-ddr-ths.patch
 Patch1020: 0023-thermal-sun8i-a523-guard-npu-channel.patch
 Patch1021: 0024-mfd-axp20x-power-off-the-AXP717-via-SOFT_PWROFF.patch
 Patch1022: 0025-watchdog-sunxi_wdt-per-variant-restart-priority.patch
-Patch1023: 0026-ASoC-sun4i-codec-set-playback_only-for-H616.patch
 Patch1024: 0027-ASoC-sun4i-codec-sort-sound-includes.patch
 Patch1025: 0028-ASoC-sun4i-codec-separate-DAC-ADC-clocks.patch
 Patch1026: 0029-ASoC-sun4i-codec-A523-playback.patch
@@ -44,7 +43,7 @@ Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 
 
 %global buildid .tg5050
-%global krel 7.2.0-rc3-tg5050
+%global krel 7.2.3-tg5050
 %global kernel_package_name kernel
 %global kernel_build_dir %{_builddir}/kernel-build
 %global _binary_payload w3T.xzdio
@@ -88,7 +87,7 @@ Requires:       %{name}-core = %{version}-%{release}
 Loadable kernel modules for the TG5050 alternate kernel.
 
 %prep
-%autosetup -n linux-7.2-rc3 -p1
+%autosetup -n linux-7.2.3 -p1
 mkdir integration
 tar -xf %{SOURCE2} -C integration --strip-components=1
 cp integration/kernel/trimui.config trimui.config
