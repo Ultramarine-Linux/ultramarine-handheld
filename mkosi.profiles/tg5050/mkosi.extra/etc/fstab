@@ -1,2 +1,2 @@
-# Direct system root selected by the vendor U-Boot rootfs partition lookup.
+# Direct system root selected by the vendor U-Boot partition lookup.
 /dev/mmcblk0p4  /  ext4  defaults  0  1

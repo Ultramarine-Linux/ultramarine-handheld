@@ -1,0 +1,4 @@
+[submodule "mkosi.profiles/tg5050/board/mainline-uboot/u-boot"]
+	path = mkosi.profiles/tg5050/board/mainline-uboot/u-boot
+	url = https://github.com/MidG971/u-boot.git
+	branch = trimui-2026.10

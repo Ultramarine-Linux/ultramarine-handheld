@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+src=/work/src/work/src
+build=${BUILDDIR:-/work/build}
+out="$build/artifacts"
+mkdir -p "$out"
+
+export CROSS_COMPILE=aarch64-linux-gnu-
+
+make -C "$src/tfa-a523" -j"$(nproc)" PLAT=sun55i_a523 DEBUG=0 bl31
+
+ub="$src/u-boot"
+make -C "$ub" distclean
+cp "$src/config/trimui-tg5050_defconfig" "$ub/configs/trimui-tg5050_defconfig"
+make -C "$ub" trimui-tg5050_defconfig
+"$ub/scripts/config" --file "$ub/.config" \
+    --set-val CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR 0x200
+"$ub/scripts/config" --file "$ub/.config" \
+    --set-val CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_DATA_PART_OFFSET 0x0
+make -C "$ub" olddefconfig
+
+# Debian bookworm retains the legacy OpenSSL headers required by this branch.
+make -C "$ub" -j"$(nproc)" \
+    BL31="$src/tfa-a523/build/sun55i_a523/release/bl31.bin"
+
+cp "$ub/spl/sunxi-spl.bin" "$out/"
+cp "$ub/u-boot-sunxi-with-spl.fit.itb" "$out/u-boot.itb"
+sha256sum "$out/sunxi-spl.bin" "$out/u-boot.itb" > "$out/SHA256SUMS"

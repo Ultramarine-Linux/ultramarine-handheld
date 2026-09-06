@@ -4,7 +4,7 @@ profile := "tg5050"
 profile_dir := justfile_directory()
 project := profile_dir / "../.."
 build_dir := project / "build"
-env_source := profile_dir / "board/trimui-linux.env"
+env_source := profile_dir / "board/trimui-linux-direct-root.env"
 env_image := build_dir / "env.img"
 env_partition_image := build_dir / "env-partition.img"
 
@@ -17,35 +17,40 @@ env:
 
 # Build the complete 16 MiB p2 partition: active environment at offset zero,
 # with the verified all-zero remainder used by the compact SD baseline.
-env-partition: env
-    rm -f {{env_partition_image}}
-    truncate -s 16M {{env_partition_image}}
-    dd if={{env_image}} of={{env_partition_image}} conv=notrunc status=none
-    test "$(stat -c %s {{env_partition_image}})" -eq 16777216
-    cmp -s {{env_image}} <(dd if={{env_partition_image}} bs=128K count=1 status=none)
-    sha256sum {{env_partition_image}}
 
-# Build the TG5050 direct p4 userspace with real ownership metadata.
-rootfs:
+# Internal mkosi staging step. The public rootfs target emits an ext4 image;
+# this directory is not a deliverable and is removed after packaging.
+rootfs-tree:
     sudo mkosi --directory={{project}} --profile={{profile}} --force
 
-# Package the rootfs tree for the direct p4 system root.
-rootfs-image: rootfs
+# Build the TG5050 direct p4 ext4 filesystem image with real ownership metadata.
+rootfs-image: rootfs-tree
     sudo rm -f {{build_dir}}/ultramarine-rootfs.ext4
     sudo truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
     sudo mkfs.ext4 -F -L ULTRAMARINE -d {{build_dir}}/ultramarine-rootfs {{build_dir}}/ultramarine-rootfs.ext4
     sudo e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
+    sudo rm -rf {{build_dir}}/ultramarine-rootfs
+
+# emit rootfs image
+rootfs: rootfs-image
 
 # Reproduce the untouched TG5050 Android boot-image v0 p3 carrier.
 bootimg:
     {{profile_dir}}/board/android_image/build-p3 --original-ramdisk
+
+# Build mainline SPL + U-Boot FIT inside the board-owned Fedora 44 sandbox.
+mainline-uboot:
+    mkosi --directory={{profile_dir}}/board/mainline-uboot --force
+
+mainline-image:
+    {{profile_dir}}/image/assemble-mainline-image
 
 # Reproduce the untouched SD reference carrier byte-for-byte.
 bootimg-reference:
     {{profile_dir}}/board/android_image/build-p3 --original-ramdisk
 
 # Assemble the complete SD-card image from the selected profile's artifacts.
-image: env-partition bootimg rootfs-image
+image: env bootimg rootfs-image
     {{profile_dir}}/image/assemble-sd-image
 
 summary:

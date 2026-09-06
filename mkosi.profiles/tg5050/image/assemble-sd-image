@@ -8,8 +8,8 @@ profile=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 project=$(cd -- "$profile/../.." && pwd)
 build="$project/build"
 rootfs="$build/ultramarine-rootfs.ext4"
-env="$build/env-partition.img"
-p3_image="$build/ultramarine-p3.img"
+env="$build/env.img"
+p3_image="$profile/board/vendor/sd/p3-kernel-container.img"
 boot0="$profile/board/vendor/stock/boot0.img"
 boot_package="$profile/board/vendor/sd/boot-package.fex"
 seed="$profile/image/layout-6g.seed.sfdisk"
@@ -70,7 +70,7 @@ sudo losetup -d "$loop"
 trap - EXIT
 
 sfdisk --verify "$out" >/dev/null
-cmp -s "$env" <(dd if="$out" bs=512 skip=2170880 count=32768 status=none)
+cmp -s "$env" <(dd if="$out" bs=512 skip=2170880 count=256 status=none)
 cmp -s "$p3_image" <(dd if="$out" bs=512 skip=2203648 count=196608 status=none)
 cmp -s "$assets/boot0.img" <(dd if="$out" bs=512 skip=256 count=136 status=none)
 cmp -s "$assets/boot_package.fex" <(dd if="$out" bs=512 skip=32800 count=3424 status=none)

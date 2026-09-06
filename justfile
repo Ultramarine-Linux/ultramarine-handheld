@@ -20,6 +20,12 @@ rootfs-image:
 image:
     just --justfile {{profile_justfile}} image
 
+mainline-uboot:
+    just --justfile {{profile_justfile}} mainline-uboot
+
+mainline-image:
+    just --justfile {{profile_justfile}} mainline-image
+
 summary:
     just --justfile {{profile_justfile}} summary
 

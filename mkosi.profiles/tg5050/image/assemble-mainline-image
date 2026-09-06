@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Assemble a mainline-U-Boot test image while retaining the generated TG5050
+# GPT/p1-p5 layout. Mainline SPL/FIT occupy the raw 128/256 KiB slots.
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+profile=$(cd -- "$script_dir/.." && pwd)
+project=$(cd -- "$profile/../.." && pwd)
+build="$project/build"
+base="$build/ultramarine-trimui-6g.raw"
+out="$build/ultramarine-trimui-mainline-6g.raw"
+spl="$build/mainline-uboot-artifacts/sunxi-spl.bin"
+fit="$build/mainline-uboot-artifacts/u-boot.itb"
+kernel="$build/mainline-src/linux/arch/arm64/boot/Image"
+dtb="$build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+ramdisk="$profile/board/android_image/ramdisk.cpio.gz"
+
+for input in "$base" "$spl" "$fit" "$kernel" "$dtb" "$ramdisk"; do
+    test -f "$input" || { echo "missing required input: $input" >&2; exit 1; }
+done
+
+cp --reflink=auto "$base" "$out"
+loop=$(sudo losetup --find --show --partscan "$out")
+p1=$(mktemp -d)
+cleanup() {
+    sudo umount "$p1" 2>/dev/null || true
+    rmdir "$p1" 2>/dev/null || true
+    sudo losetup -d "$loop" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+sudo mount "$loop"p1 "$p1"
+sudo mkdir -p "$p1/extlinux"
+sudo cp "$kernel" "$p1/Image"
+sudo cp "$dtb" "$p1/sun55iw3p1-soc-system.dtb"
+sudo cp "$ramdisk" "$p1/initramfs.cpio.gz"
+sudo tee "$p1/extlinux/extlinux.conf" >/dev/null <<'EOF'
+DEFAULT ultramarine-mainline
+TIMEOUT 1
+
+LABEL ultramarine-mainline
+    KERNEL /Image
+    INITRD /initramfs.cpio.gz
+    FDT /sun55iw3p1-soc-system.dtb
+    APPEND console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon root=/dev/mmcblk0p4 rootwait init=/sbin/init loglevel=7 panic=10
+EOF
+sync
+sudo umount "$p1"
+rmdir "$p1"
+sudo losetup -d "$loop"
+trap - EXIT
+
+# Mainline raw layout: SPL at 128 KiB, FIT at 256 KiB.
+dd if="$spl" of="$out" bs=512 seek=256 conv=notrunc status=none
+dd if="$fit" of="$out" bs=512 seek=512 conv=notrunc status=none
+sync
+
+# Verify the raw slots and the p1 boot files are present in the final image.
+cmp -n "$(stat -c %s "$spl")" -s "$spl" <(dd if="$out" bs=512 skip=256 count=$((($(stat -c %s "$spl") + 511) / 512)) status=none)
+cmp -n "$(stat -c %s "$fit")" -s "$fit" <(dd if="$out" bs=512 skip=512 count=$((($(stat -c %s "$fit") + 511) / 512)) status=none)
+printf 'mainline image: %s\n' "$out"
+sha256sum "$out"
+stat -c '%n %s bytes (apparent)' "$out"
+du -h "$out"

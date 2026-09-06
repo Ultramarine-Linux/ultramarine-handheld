@@ -1,0 +1,10 @@
+[terminal]
+vt = 1
+
+[initial_session]
+command = "sway"
+user = "cappy"
+
+[default_session]
+command = "tuigreet --time --remember --cmd sway"
+user = "cappy"

@@ -15,9 +15,11 @@ systemctl enable trimui-inputd.service
 systemctl enable trimui-power-toggle.service
 systemctl enable fancontrol.service
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
-# the explicit boot-journal debugger below.
+# greetd, which creates and activates the graphical PAM/logind session.
 systemctl mask kmscon.service kmsconvt@.service
-systemctl enable ultramarine-kms-journal.service
+systemctl disable ultramarine-kms-journal.service
+systemctl mask getty@tty1.service
+systemctl enable greetd.service
 systemctl mask NetworkManager-wait-online.service
 # This appliance is preconfigured; firstboot would wait for interactive input
 # that the handheld cannot provide during early bring-up.
