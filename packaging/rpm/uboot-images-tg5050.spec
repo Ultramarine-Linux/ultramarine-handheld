@@ -27,6 +27,7 @@ BuildRequires:  flex
 BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  openssl-devel
+BuildRequires:  openssl-devel-engine
 BuildRequires:  python3
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools

@@ -151,4 +151,5 @@ jobs:
           if-no-files-found: error
           path: |
             build/rpm-output/aic8800-firmware-*.rpm
+            /work/packages/aic8800-firmware-*.rpm
             build/rpm-output/*.buildinfo
