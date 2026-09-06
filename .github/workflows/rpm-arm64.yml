@@ -57,6 +57,7 @@ jobs:
       - name: Build kernel RPMs in Fedora ARM64 mkosi
         run: |
           mkosi --directory=packaging/rpm-builder \
+            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
       - name: Upload kernel RPMs
@@ -98,6 +99,7 @@ jobs:
       - name: Build U-Boot RPM in Fedora ARM64 mkosi
         run: |
           mkosi --directory=packaging/rpm-builder-uboot \
+            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
       - name: Upload U-Boot RPM and boot artifacts
@@ -136,6 +138,7 @@ jobs:
       - name: Build AIC8800 firmware RPM in Fedora ARM64 mkosi
         run: |
           mkosi --directory=packaging/rpm-builder-firmware \
+            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
       - name: Upload AIC8800 firmware RPM
