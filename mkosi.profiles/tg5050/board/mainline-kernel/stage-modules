@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Stage matching in-tree and AIC8800 modules for the TG5050 rootfs.
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+profile=$(cd -- "$script_dir/../.." && pwd)
+project=$(cd -- "$profile/../.." && pwd)
+repo="$script_dir/trimui_mainline_dts"
+ksrc=$(cd -- "${1:?usage: stage-modules <kernel-source-dir>}" && pwd)
+stage="$project/build/mainline-module-tree"
+work="$project/build/aic8800"
+release=$(make -s -C "$ksrc" ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}" kernelrelease)
+
+rm -rf "$stage"
+rm -rf "$work"
+mkdir -p "$stage"
+make -C "$ksrc" ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}" \
+    INSTALL_MOD_PATH="$stage" INSTALL_MOD_STRIP=1 modules_install
+rm -f "$stage/lib/modules/$release/build" "$stage/lib/modules/$release/source"
+
+# The vendor source is warning-heavy. Relax only the known warning classes for
+# this external module; keep CONFIG_WERROR enabled for the kernel itself.
+export KCFLAGS='-Wno-error=missing-prototypes -Wno-error=discarded-qualifiers -Wno-error=unused-variable -Wno-error=implicit-fallthrough'
+"$repo/kernel/aic8800/build-aic8800.sh" "$ksrc" "$work"
+
+module_dir="$stage/lib/modules/$release/extra/aic8800"
+install -d "$module_dir"
+for module in \
+    "$work/src/drivers/net/wireless/aic8800_sdio/aic8800_bsp/aic8800_bsp.ko" \
+    "$work/src/drivers/net/wireless/aic8800_sdio/aic8800_fdrv/aic8800_fdrv.ko" \
+    "$work/src/drivers/net/wireless/aic8800_sdio/aic8800_btlpm/aic8800_btlpm.ko"; do
+    install -m 0644 "$module" "$module_dir/"
+done
+
+firmware="$stage/lib/firmware/aic8800_sdio"
+install -d "$firmware"
+cp -a "$profile/mkosi.extra/lib/firmware/aic8800d80/." "$firmware/"
+cp -a "$profile/mkosi.extra/lib/firmware/aic8800dc/." "$firmware/"
+depmod -b "$stage" -F "$ksrc/System.map" "$release"
+
+for module in aic8800_bsp aic8800_fdrv aic8800_btlpm; do
+    modinfo -b "$stage" -k "$release" -F vermagic "$module" | grep -F "$release"
+done
+modprobe -d "$stage" -S "$release" --show-depends aic8800_fdrv
+printf 'staged module tree: %s (%s)\n' "$stage" "$release"

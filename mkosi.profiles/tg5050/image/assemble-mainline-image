@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assemble a mainline-U-Boot test image while retaining the generated TG5050
-# GPT/p1-p5 layout. Mainline SPL/FIT occupy the raw 128/256 KiB slots.
+# GPT/p1-p4 layout. Mainline SPL/FIT occupy the raw 128/256 KiB slots.
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -13,11 +13,15 @@ spl="$build/mainline-uboot-artifacts/sunxi-spl.bin"
 fit="$build/mainline-uboot-artifacts/u-boot.itb"
 kernel="$build/mainline-src/linux/arch/arm64/boot/Image"
 dtb="$build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
-ramdisk="$profile/board/android_image/ramdisk.cpio.gz"
+ramdisk="$build/mainline-initramfs.cpio.gz"
+systemd_ramdisk="$build/mainline-systemd-initramfs.cpio.gz"
+extlinux="$script_dir/extlinux-mainline.conf"
 
-for input in "$base" "$spl" "$fit" "$kernel" "$dtb" "$ramdisk"; do
+for input in "$base" "$spl" "$fit" "$kernel" "$dtb" "$ramdisk" "$systemd_ramdisk" "$extlinux"; do
     test -f "$input" || { echo "missing required input: $input" >&2; exit 1; }
 done
+test "$(stat -c %s "$spl")" -le 131072 || { echo "SPL overlaps FIT slot" >&2; exit 1; }
+test "$(stat -c %s "$fit")" -le 37486592 || { echo "FIT overlaps GPT/partitions" >&2; exit 1; }
 
 cp --reflink=auto "$base" "$out"
 loop=$(sudo losetup --find --show --partscan "$out")
@@ -34,16 +38,8 @@ sudo mkdir -p "$p1/extlinux"
 sudo cp "$kernel" "$p1/Image"
 sudo cp "$dtb" "$p1/sun55iw3p1-soc-system.dtb"
 sudo cp "$ramdisk" "$p1/initramfs.cpio.gz"
-sudo tee "$p1/extlinux/extlinux.conf" >/dev/null <<'EOF'
-DEFAULT ultramarine-mainline
-TIMEOUT 1
-
-LABEL ultramarine-mainline
-    KERNEL /Image
-    INITRD /initramfs.cpio.gz
-    FDT /sun55iw3p1-soc-system.dtb
-    APPEND console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon root=/dev/mmcblk0p4 rootwait init=/sbin/init loglevel=7 panic=10
-EOF
+sudo cp "$systemd_ramdisk" "$p1/initramfs-systemd.cpio.gz"
+sudo cp "$extlinux" "$p1/extlinux/extlinux.conf"
 sync
 sudo umount "$p1"
 rmdir "$p1"
@@ -58,6 +54,19 @@ sync
 # Verify the raw slots and the p1 boot files are present in the final image.
 cmp -n "$(stat -c %s "$spl")" -s "$spl" <(dd if="$out" bs=512 skip=256 count=$((($(stat -c %s "$spl") + 511) / 512)) status=none)
 cmp -n "$(stat -c %s "$fit")" -s "$fit" <(dd if="$out" bs=512 skip=512 count=$((($(stat -c %s "$fit") + 511) / 512)) status=none)
+loop=$(sudo losetup --find --show --read-only --partscan "$out")
+p1=$(mktemp -d)
+trap cleanup EXIT
+sudo mount -o ro "$loop"p1 "$p1"
+cmp "$kernel" "$p1/Image"
+cmp "$dtb" "$p1/sun55iw3p1-soc-system.dtb"
+cmp "$ramdisk" "$p1/initramfs.cpio.gz"
+cmp "$systemd_ramdisk" "$p1/initramfs-systemd.cpio.gz"
+cmp "$extlinux" "$p1/extlinux/extlinux.conf"
+sudo umount "$p1"
+rmdir "$p1"
+sudo losetup -d "$loop"
+trap - EXIT
 printf 'mainline image: %s\n' "$out"
 sha256sum "$out"
 stat -c '%n %s bytes (apparent)' "$out"

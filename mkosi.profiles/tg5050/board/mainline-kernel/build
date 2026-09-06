@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Build the TG5050 kernel from the pinned Linux submodule.
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+profile=$(cd -- "$script_dir/../.." && pwd)
+project=$(cd -- "$profile/../.." && pwd)
+repo="$script_dir/trimui_mainline_dts"
+kernel_repo="$script_dir/linux"
+ksrc="$project/build/mainline-kernel-worktree"
+baseline=a13c140cc289c0b7b3770bce5b3ad42ab35074aa
+dts="$ksrc/arch/arm64/boot/dts/allwinner"
+patches="$repo/kernel/patches"
+drivers="$repo/kernel/drivers"
+export ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
+export KBUILD_BUILD_USER=ultramarine
+export KBUILD_BUILD_HOST=tg5050-builder
+export KBUILD_BUILD_TIMESTAMP
+KBUILD_BUILD_TIMESTAMP=$(git -C "$kernel_repo" show -s --format=%cD "$baseline")
+
+[[ $(git -C "$kernel_repo" rev-parse HEAD) == "$baseline" ]] || {
+    echo "Linux submodule is not pinned at v7.2-rc3 ($baseline)" >&2
+    exit 1
+}
+if [[ -e "$ksrc" ]]; then
+    git -C "$kernel_repo" worktree remove --force "$ksrc" 2>/dev/null || rm -rf "$ksrc"
+fi
+git -C "$kernel_repo" worktree prune
+git -C "$kernel_repo" worktree add --detach "$ksrc" "$baseline"
+
+install -m 0644 "$drivers/phy-sun55i-dsi-combo.c" "$ksrc/drivers/phy/allwinner/"
+install -m 0644 "$drivers/pwm-sun20i.c" "$ksrc/drivers/pwm/"
+install -m 0644 "$drivers/panel-trimui-smart-pro-s.c" "$ksrc/drivers/gpu/drm/panel/"
+
+for p in "$patches"/0*.patch; do
+    # Some archived mail patches have a malformed bare `--` footer. Strip the
+    # mail footer before handing the actual diff to patch(1).
+    patch_body=$(mktemp)
+    sed '/^--$/,$d' "$p" > "$patch_body"
+    if patch -d "$ksrc" -p1 --forward --dry-run < "$patch_body" >/dev/null 2>&1; then
+        patch -d "$ksrc" -p1 --forward < "$patch_body"
+    elif patch -d "$ksrc" -p1 --reverse --dry-run < "$patch_body" >/dev/null 2>&1; then
+        printf 'already upstream: %s\n' "$(basename "$p")"
+    else
+        rm -f "$patch_body"
+        echo "patch neither applies nor matches upstream: $p" >&2
+        exit 1
+    fi
+    rm -f "$patch_body"
+done
+
+for f in sun55i-a523-trimui-smart-pro-s.dts sun55i-a523.dtsi trimui-de-reconcile.dtsi trimui-panel.dtsi; do
+    install -m 0644 "$repo/dts/$f" "$dts/$f"
+done
+grep -q 'sun55i-a523-trimui-smart-pro-s.dtb' "$dts/Makefile" || \
+    printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> "$dts/Makefile"
+
+cd "$ksrc"
+make defconfig
+./scripts/kconfig/merge_config.sh -m .config \
+    "$repo/kernel/trimui.config" "$script_dir/required.config"
+make olddefconfig
+for symbol in I2C_MV64XXX MFD_AXP20X_I2C REGULATOR_FIXED_VOLTAGE \
+              REGULATOR_AXP20X RTC_DRV_SUN6I SERIAL_8250_DW MMC_SUNXI \
+              DEVTMPFS DEVTMPFS_MOUNT EXT4_FS; do
+    grep -qx "CONFIG_${symbol}=y" .config || {
+        echo "required built-in kernel option missing: CONFIG_${symbol}=y" >&2
+        exit 1
+    }
+done
+make -j"$(nproc)" Image modules
+make allwinner/sun55i-a523-trimui-smart-pro-s.dtb
+
+install -D -m 0644 arch/arm64/boot/Image "$project/build/mainline-src/linux/arch/arm64/boot/Image"
+install -D -m 0644 "$dts/sun55i-a523-trimui-smart-pro-s.dtb" \
+    "$project/build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+printf 'kernel: %s\n' "$(make -s kernelrelease)"
+sha256sum "$project/build/mainline-src/linux/arch/arm64/boot/Image" \
+    "$project/build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"

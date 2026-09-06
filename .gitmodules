@@ -2,3 +2,10 @@
 	path = mkosi.profiles/tg5050/board/mainline-uboot/u-boot
 	url = https://github.com/MidG971/u-boot.git
 	branch = trimui-2026.10
+[submodule "mkosi.profiles/tg5050/board/mainline-kernel/trimui_mainline_dts"]
+	path = mkosi.profiles/tg5050/board/mainline-kernel/trimui_mainline_dts
+	url = https://github.com/MidG971/trimui_mainline_dts.git
+	branch = main
+[submodule "mkosi.profiles/tg5050/board/mainline-kernel/linux"]
+	path = mkosi.profiles/tg5050/board/mainline-kernel/linux
+	url = https://github.com/torvalds/linux.git

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Refuse destructive updates unless TARGET is the generated TG5050 disk layout.
+set -euo pipefail
+
+target=${1:?usage: validate-target /dev/whole-disk}
+test -b "$target" || { echo "not a block device: $target" >&2; exit 1; }
+test "$(lsblk -dn -o TYPE "$target")" = disk || {
+    echo "target must be a whole disk: $target" >&2
+    exit 1
+}
+test "$(lsblk -dn -o RM "$target")" = 1 || {
+    echo "target is not marked removable: $target" >&2
+    exit 1
+}
+case "$target" in
+    /dev/*[0-9]) part="${target}p" ;;
+    /dev/*) part="$target" ;;
+    *) echo "target must be an absolute /dev path" >&2; exit 1 ;;
+esac
+
+disk_guid=$(sudo sfdisk -d "$target" | sed -n 's/^label-id: //p')
+[[ ${disk_guid,,} == bee15ceb-86a0-423e-8f81-7f674e42714c ]] || {
+    echo "unexpected GPT disk GUID on $target: $disk_guid" >&2
+    exit 1
+}
+
+check_partition() {
+    local device=$1 label=$2 uuid=$3 start=$4 size=$5
+    test -b "$device" || { echo "missing partition: $device" >&2; exit 1; }
+    [[ $(lsblk -dn -o PARTLABEL "$device") == "$label" ]] || {
+        echo "unexpected label on $device" >&2; exit 1;
+    }
+    [[ $(lsblk -dn -o PARTUUID "$device" | tr '[:upper:]' '[:lower:]') == "$uuid" ]] || {
+        echo "unexpected PARTUUID on $device" >&2; exit 1;
+    }
+    [[ $(lsblk -bdn -o START "$device") == "$start" ]] || {
+        echo "unexpected start sector on $device" >&2; exit 1;
+    }
+    [[ $(lsblk -bdn -o SIZE "$device") == "$size" ]] || {
+        echo "unexpected size on $device" >&2; exit 1;
+    }
+    ! findmnt -rn -S "$device" >/dev/null || {
+        echo "target partition is mounted: $device" >&2; exit 1;
+    }
+}
+
+check_partition "${part}1" boot-resource 5de82070-7b8c-4337-bb93-cae98c396718 73728 1073741824
+check_partition "${part}2" env 94e2adf6-2f1f-4864-b02b-ef583b3cbbe1 2170880 16777216
+check_partition "${part}3" boot 035bfc1b-bb58-420f-903d-5cd551e61562 2203648 100663296
+check_partition "${part}4" rootfs 693b9aba-2fc7-4222-9bd9-d2dc7b82099a 2400256 5213502976
+
+printf '%s\n' "$part"

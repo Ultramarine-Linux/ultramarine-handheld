@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project=$(cd -- "$script_dir/../../../.." && pwd)
+source_ramdisk="$script_dir/../android_image/ramdisk.cpio.gz"
+stage=$(mktemp -d)
+out="$project/build/mainline-initramfs.cpio.gz"
+cleanup() { rm -rf "$stage"; }
+trap cleanup EXIT
+
+mkdir -p "$stage/bin" "$stage/sbin" "$stage/dev" "$stage/proc" "$stage/sys" "$stage/newroot"
+gzip -dc "$source_ramdisk" | (cd "$stage" && cpio -idmu --quiet bin/busybox)
+# Execute the actual target binary: a symlink does not enable an applet.
+runner=()
+if [[ $(uname -m) != aarch64 ]]; then
+    runner=(qemu-aarch64-static)
+    command -v "${runner[0]}" >/dev/null
+fi
+applets=$("${runner[@]}" "$stage/bin/busybox" --list-full)
+for required in bin/ash bin/sh bin/mount bin/mkdir bin/sleep sbin/switch_root; do
+    if ! grep -Fxq "$required" <<< "$applets"; then
+        printf 'Required BusyBox applet missing: %s\n' "$required" >&2
+        exit 1
+    fi
+done
+while IFS= read -r applet; do
+    mkdir -p "$(dirname "$stage/$applet")"
+    ln -sr "$stage/bin/busybox" "$stage/$applet"
+done <<< "$applets"
+install -m 0755 "$script_dir/init" "$stage/init"
+"${runner[@]}" "$stage/bin/busybox" ash -n "$stage/init"
+
+mkdir -p "$(dirname "$out")"
+(cd "$stage" && find . -print0 | cpio --null -o -H newc --owner=0:0 --quiet | gzip -n) > "$out"
+printf 'mainline initramfs: %s\n' "$out"
+sha256sum "$out"

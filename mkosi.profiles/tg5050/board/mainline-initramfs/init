@@ -1,0 +1,56 @@
+#!/bin/ash
+set -u
+export PATH=/bin:/sbin
+
+rescue() {
+    echo "mainline initramfs: $*; entering rescue shell" >&2
+    # Keep PID 1 alive even if the interactive shell exits or crashes.
+    while :; do
+        /bin/ash -i
+        sleep 1
+    done
+}
+
+mkdir -p /proc /sys /dev /newroot || rescue 'cannot create mountpoints'
+mount -t proc -o nodev,noexec,nosuid proc /proc || rescue 'cannot mount proc'
+mount -t sysfs -o nodev,noexec,nosuid sysfs /sys || rescue 'cannot mount sysfs'
+# devtmpfs creates kernel device nodes, including devices discovered later.
+# This BusyBox has no mdev applet; no userspace scan is needed here.
+mount -t devtmpfs none /dev || rescue 'cannot mount devtmpfs'
+
+
+mounted=0
+# The SD card is the root device for this test image.
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    if [ -b /dev/mmcblk0p4 ] && mount -o rw,noatime /dev/mmcblk0p4 /newroot; then
+        mounted=1
+        break
+    fi
+    sleep 1
+done
+
+if [ "$mounted" -ne 1 ]; then
+    if [ ! -b /dev/mmcblk0p4 ]; then
+        rescue '/dev/mmcblk0p4 did not appear within 20 seconds'
+    fi
+    rescue '/dev/mmcblk0p4 exists but mounting it failed'
+fi
+
+case " $(cat /proc/cmdline) " in
+    *" rd.break=pre-switch-root "*)
+        cd /newroot || rescue 'cannot enter mounted root'
+        rescue 'requested pre-switch-root break; root mounted at /newroot'
+        ;;
+esac
+
+# The rootfs userspace has been verified independently before making systemd
+# PID 1. Move the kernel API filesystems into the new root and hand off.
+mkdir -p /newroot/proc /newroot/sys /newroot/dev || rescue 'cannot create root API mountpoints'
+[ -x /newroot/sbin/init ] || rescue 'rootfs /sbin/init is missing or not executable'
+mount -o move /proc /newroot/proc || rescue 'cannot move proc'
+mount -o move /sys /newroot/sys || rescue 'cannot move sysfs'
+mount -o move /dev /newroot/dev || rescue 'cannot move devtmpfs'
+
+echo 'mainline initramfs: root mounted; handing off to /sbin/init'
+exec switch_root -c /dev/console /newroot /sbin/init
+rescue 'switch_root failed'

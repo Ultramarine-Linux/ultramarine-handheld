@@ -1,25 +1,22 @@
 # Ultramarine for TrimUI Smart Pro S
 
-an attempt to build Ultramarine for the TrimUI Smart Pro S using Knulli and the stock firmware
-as a reference image, may also be applicable to other boards,
-may be added if anyone wants to support it lol
+Ultramarine Linux for the TrimUI Smart Pro S (TG5050 / Allwinner A523). The
+working mainline path uses pinned U-Boot and TG5050 kernel integration sources,
+a mkosi-built systemd initrd, and an ARM64 Fedora/Ultramarine root filesystem.
 
 ## boot chain
 
-- bootrom seeks SPL
-- it loads boot0/SPL from LBA 256
-- then loads the vendor boot package from LBA 32800
-- after that, the boot package loads U-Boot
-- which then reads the GPT table, and then hands off control to the kernel
-- partition 1 contains assets for Android boot image that handles pre-boot firmware shit like charging and boot logo
-- partition 2 contains the U-Boot environment config, which is loaded according to the boot package (which reads from partlabel `env` thus the partition)
-- partition 3 contains the Android boot image and kernel, which then loads assets from partition 1
-- partition 4 contains the ext4 bootstrap, used as initramfs
-- partition 5 contains the actual root filesystem
+- BootROM loads mainline SPL from LBA 256.
+- SPL loads the U-Boot FIT from LBA 512 and hands off through the A523 TF-A BL31.
+- U-Boot reads extlinux from p1 and loads `Image`, the board DTB, and the
+  mkosi-built systemd initrd.
+- The initrd discovers, checks, and mounts p4 before switching to the real
+  systemd installation.
+- p1 is the 1 GiB boot-resource filesystem, p2 is the 16 MiB environment,
+  p3 is the retained 96 MiB vendor boot container, and p4 is the direct root.
 
-The vendor boot layers remain intentionally intact. In particular, the raw
-boot package contains battery/charger-mode and boot-logo logic.
-p3 also carries vendor early userspace, modules, and charger-related `healthd` support.
+The vendor boot inputs remain available for reference/recovery, but the
+mainline path does not boot the vendor boot package or Android ramdisk.
 
 ## Source inputs vs. build outputs
 
@@ -36,24 +33,30 @@ boot-artifacts/            extracted vendor kernel and DTB research artifacts
 
 ## Build
 
-Requirements include `mkosi`, `systemd-repart`, `sfdisk`, `mkenvimage`,
-`e2fsprogs`, and standard loop-device support. `just sd-image` requires `sudo`
-for loop devices and filesystem resizing inside the output image.
+Requirements include `mkosi`, `systemd-repart`, `sfdisk`, `mkenvimage`, an
+AArch64 cross compiler, `e2fsprogs`, and standard loop-device support. Clone
+submodules first. Linux is pinned as a submodule at the exact v7.2-rc3 commit
+(`a13c140cc289`), alongside the matching TG5050 integration submodule. The
+build creates and recreates a disposable kernel worktree under `build/`; it
+does not modify the pinned Linux checkout.
 
 ```bash
-just profile=tg5050 env rootfs-image
-just profile=tg5050 image
+git submodule update --init --recursive
+just --justfile mkosi.profiles/tg5050/justfile mainline-image
 ```
 
-The final command verifies GPT structure and byte identity for boot0, the boot
-package, p2, and p3. It also verifies the direct p4 system root with `e2fsck`.
+This applies the pinned TG5050 patchset, validates required built-in drivers,
+builds the kernel and modules, builds the three out-of-tree AIC8800 modules,
+stages the stock firmware in the driver's flat runtime layout, builds both the
+systemd and BusyBox rescue initrds, assembles the four-partition image, and
+verifies the generated filesystems and raw bootloader slots.
 
 Inspect a completed image:
 
 ```bash
-sha256sum build/ultramarine-trimui-6g.raw
-sudo sfdisk -d build/ultramarine-trimui-6g.raw
-sudo sfdisk --verify build/ultramarine-trimui-6g.raw
+sha256sum build/ultramarine-trimui-mainline-6g.raw
+sudo sfdisk -d build/ultramarine-trimui-mainline-6g.raw
+sudo sfdisk --verify build/ultramarine-trimui-mainline-6g.raw
 ```
 
 ## Flash and first boot test
@@ -63,15 +66,37 @@ Confirm the target device carefully before writing:
 
 ```bash
 lsblk -o NAME,PATH,SIZE,MODEL,TRAN,RM
-sudo dd if=build/ultramarine-trimui-6g.raw \
+sudo dd if=build/ultramarine-trimui-mainline-6g.raw \
   of=/dev/sdX \
   bs=16M status=progress conv=fsync
 sync
 ```
 
+For iterative development, update only the verified boot payloads or rootfs:
+
+```bash
+just --justfile mkosi.profiles/tg5050/justfile flash-mainline /dev/sdX
+just --justfile mkosi.profiles/tg5050/justfile flash-rootfs /dev/sdX
+```
+
+The first recipe preserves GPT and p2-p4. The second rewrites only p4 and
+performs a complete source/target comparison after writing.
+
 The compact image occupies the first 6 GiB of a larger card. Its final p4
 partition is the direct Ultramarine system root; there is no p5 bootstrap or
 secondary root partition.
+
+The default extlinux entry uses the mkosi-built systemd initrd. A second entry
+keeps the static BusyBox initramfs as a pre-switch-root rescue environment.
+
+## AIC8800 Wi-Fi
+
+The pinned kernel integration includes the AIC8800 SDIO build recipe. The
+profile stages `aic8800_bsp`, `aic8800_fdrv`, and `aic8800_btlpm` against the
+exact kernel release, generates `depmod` metadata, and flattens the stock D80/DC
+firmware into `/lib/firmware/aic8800_sdio/`. On tested hardware the two SDIO
+functions enumerate as `c8a1:0082` and `c8a1:0182`, bind to `aicwf_sdio` and
+`aicbsp_sdio`, and expose `wlan0` to NetworkManager.
 
 ## Hardware I/O
 

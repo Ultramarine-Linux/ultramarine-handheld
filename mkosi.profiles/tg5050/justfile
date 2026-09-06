@@ -20,7 +20,7 @@ env:
 
 # Internal mkosi staging step. The public rootfs target emits an ext4 image;
 # this directory is not a deliverable and is removed after packaging.
-rootfs-tree:
+rootfs-tree: mainline-modules
     sudo mkosi --directory={{project}} --profile={{profile}} --force
 
 # Build the TG5050 direct p4 ext4 filesystem image with real ownership metadata.
@@ -42,8 +42,103 @@ bootimg:
 mainline-uboot:
     mkosi --directory={{profile_dir}}/board/mainline-uboot --force
 
-mainline-image:
+# Apply the pinned TG5050 patchset to a Linux v7.2 tree and build Image/modules/DTB.
+mainline-kernel:
+    {{profile_dir}}/board/mainline-kernel/build
+
+# Stage matching in-tree modules, AIC8800 modules, and firmware for mkosi.
+mainline-modules: mainline-kernel
+    {{profile_dir}}/board/mainline-kernel/stage-modules {{quote(build_dir / "mainline-kernel-worktree")}}
+
+systemd-initrd:
+    mkosi --directory={{profile_dir}}/systemd-initrd --force build
+
+mainline-initramfs:
+    {{profile_dir}}/board/mainline-initramfs/build
+
+mainline-image: image mainline-uboot mainline-initramfs systemd-initrd mainline-kernel
     {{profile_dir}}/image/assemble-mainline-image
+
+# Incrementally flash mainline SPL/FIT and the p1 boot payload. This leaves
+# the GPT, environment, and rootfs untouched. Example: just flash-mainline /dev/sdX
+flash-mainline target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -x
+    target={{quote(target)}}
+    bootdev=$({{profile_dir}}/image/validate-target "$target")
+    spl='{{build_dir}}/mainline-uboot-artifacts/sunxi-spl.bin'
+    fit='{{build_dir}}/mainline-uboot-artifacts/u-boot.itb'
+    kernel='{{build_dir}}/mainline-src/linux/arch/arm64/boot/Image'
+    ramdisk='{{build_dir}}/mainline-initramfs.cpio.gz'
+    systemd_ramdisk='{{build_dir}}/mainline-systemd-initramfs.cpio.gz'
+    dtb='{{build_dir}}/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb'
+    extlinux='{{profile_dir}}/image/extlinux-mainline.conf'
+    test -f "$spl" -a -f "$fit" -a -f "$kernel" -a -f "$ramdisk" -a -f "$systemd_ramdisk" -a -f "$dtb" -a -f "$extlinux"
+    test "$(stat -c %s "$spl")" -le 131072 || { echo "SPL overlaps FIT slot" >&2; exit 1; }
+    test "$(stat -c %s "$fit")" -le 37486592 || { echo "FIT overlaps GPT/partitions" >&2; exit 1; }
+    mountpoint=$(mktemp -d)
+    cleanup() { sudo umount "$mountpoint" 2>/dev/null || true; sudo rmdir "$mountpoint" 2>/dev/null || true; }
+    trap cleanup EXIT
+    sudo mount "${bootdev}1" "$mountpoint"
+    test "$(df --output=avail -B1 "$mountpoint" | tail -n 1)" -ge $((
+        $(stat -c %s "$kernel") + $(stat -c %s "$ramdisk") +
+        $(stat -c %s "$systemd_ramdisk") + $(stat -c %s "$dtb") +
+        $(stat -c %s "$extlinux")
+    )) || { echo "insufficient free space on ${bootdev}1" >&2; exit 1; }
+    sudo install -m 0644 "$kernel" "$mountpoint/Image"
+    sudo install -m 0644 "$ramdisk" "$mountpoint/initramfs.cpio.gz"
+    sudo install -m 0644 "$systemd_ramdisk" "$mountpoint/initramfs-systemd.cpio.gz"
+    sudo install -m 0644 "$dtb" "$mountpoint/sun55iw3p1-soc-system.dtb"
+    sudo mkdir -p "$mountpoint/extlinux"
+    sudo install -m 0644 "$extlinux" "$mountpoint/extlinux/extlinux.conf"
+    sync
+    sudo umount "$mountpoint"
+    sudo dd if="$spl" of="$target" bs=512 seek=256 conv=notrunc,fsync status=progress
+    sudo dd if="$fit" of="$target" bs=512 seek=512 conv=notrunc,fsync status=progress
+    spl_size=$(stat -c %s "$spl")
+    fit_size=$(stat -c %s "$fit")
+    sudo dd if="$target" bs=512 skip=256 count=$(((spl_size + 511) / 512)) status=none | cmp -n "$spl_size" - "$spl"
+    sudo dd if="$target" bs=512 skip=512 count=$(((fit_size + 511) / 512)) status=none | cmp -n "$fit_size" - "$fit"
+    sudo mount -o ro "${bootdev}1" "$mountpoint"
+    cmp "$kernel" "$mountpoint/Image"
+    cmp "$ramdisk" "$mountpoint/initramfs.cpio.gz"
+    cmp "$systemd_ramdisk" "$mountpoint/initramfs-systemd.cpio.gz"
+    cmp "$dtb" "$mountpoint/sun55iw3p1-soc-system.dtb"
+    cmp "$extlinux" "$mountpoint/extlinux/extlinux.conf"
+    sudo umount "$mountpoint"
+    echo "incremental mainline flash verified: $target"
+
+# Rewrite only p4 from the generated image, preserving GPT and p1-p3.
+# Example: just flash-rootfs /dev/sdX
+flash-rootfs target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    part=$({{profile_dir}}/image/validate-target "$target")
+    rootdev="${part}4"
+    ! findmnt "$rootdev" >/dev/null || {
+        echo "root partition is mounted: $rootdev" >&2
+        exit 1
+    }
+    image='{{build_dir}}/ultramarine-trimui-6g.raw'
+    test -f "$image"
+    loop=$(sudo losetup --find --show --read-only --partscan "$image")
+    cleanup() { sudo losetup -d "$loop" 2>/dev/null || true; }
+    trap cleanup EXIT
+    source="${loop}p4"
+    source_size=$(sudo blockdev --getsize64 "$source")
+    target_size=$(sudo blockdev --getsize64 "$rootdev")
+    test "$source_size" = "$target_size" || {
+        echo "p4 size mismatch: source=$source_size target=$target_size" >&2
+        exit 1
+    }
+    sudo e2fsck -fn "$source"
+    sudo dd if="$source" of="$rootdev" bs=16M iflag=fullblock conv=fsync status=progress
+    sudo blockdev --flushbufs "$target"
+    sudo cmp "$source" "$rootdev"
+    sudo e2fsck -fn "$rootdev"
+    echo "rootfs p4 flash verified: $rootdev"
 
 # Reproduce the untouched SD reference carrier byte-for-byte.
 bootimg-reference:
