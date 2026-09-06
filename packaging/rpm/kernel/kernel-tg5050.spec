@@ -45,7 +45,7 @@ Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 
 %global buildid .tg5050
 %global krel 7.2.0-rc3-tg5050
-%global krel_rpm 7.2.0-rc3.tg5050
+%global debug_package %{nil}
 %global kernel_package_name kernel
 %global kernel_build_dir %{_builddir}/kernel-build
 %global _binary_payload w3T.xzdio
@@ -75,7 +75,9 @@ Fedora-compatible kernel paths and release metadata.
 %package core
 Summary:        Core files for the TG5050 alternate kernel
 Requires:       %{name} = %{version}-%{release}
-Provides:       kernel-uname-r = %{krel_rpm}
+Provides:       kernel-core = %{version}-%{release}
+Provides:       kernel-uname-r = 7.2.0-rc3.tg5050
+Provides:       kernel-core-uname-r = 7.2.0-rc3.tg5050
 
 %description core
 The bootable Image, board device tree, and built-in kernel metadata for the
@@ -84,6 +86,8 @@ TG5050 alternate kernel.
 %package modules
 Summary:        Loadable modules for the TG5050 alternate kernel
 Requires:       %{name}-core = %{version}-%{release}
+Provides:       kernel-modules = %{version}-%{release}
+Provides:       kernel-modules-uname-r = 7.2.0-rc3.tg5050
 
 %description modules
 Loadable kernel modules for the TG5050 alternate kernel.
