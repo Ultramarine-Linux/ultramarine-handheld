@@ -6,12 +6,14 @@ on:
       - "packaging/rpm/**"
       - "packaging/rpm-builder/**"
       - "packaging/rpm-builder-uboot/**"
+      - "packaging/rpm-builder-firmware/**"
       - ".github/workflows/rpm-arm64.yml"
   pull_request:
     paths:
       - "packaging/rpm/**"
       - "packaging/rpm-builder/**"
       - "packaging/rpm-builder-uboot/**"
+      - "packaging/rpm-builder-firmware/**"
       - ".github/workflows/rpm-arm64.yml"
   workflow_dispatch:
 
@@ -106,3 +108,41 @@ jobs:
             build/rpm-output/*.rpm
             build/rpm-output/*.buildinfo
             build/rpm-output/*.src.rpm
+
+  firmware:
+    name: aic8800-firmware (Fedora ARM64 mkosi)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install mkosi and host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes systemd-container curl git python3
+          git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
+          sudo ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
+          mkosi --version
+
+      - name: Prefetch firmware source
+        run: |
+          set -eux
+          mkdir -p build/rpm-sources
+          curl --fail --location --retry 3 \
+            -o build/rpm-sources/aic8800-batocera-ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz \
+            https://github.com/batocera-linux/aic8800/archive/ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz
+
+      - name: Build AIC8800 firmware RPM in Fedora ARM64 mkosi
+        run: |
+          sudo mkosi --directory=packaging/rpm-builder-firmware \
+            --incremental=yes --force build
+
+      - name: Upload AIC8800 firmware RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: aic8800-firmware-rpm-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            build/rpm-output/aic8800-firmware-*.rpm
+            build/rpm-output/*.buildinfo

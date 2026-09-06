@@ -11,11 +11,11 @@ cp src/downloads/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz \
 
 # Materialize the local RPM inputs. Source2 supplies the board integration
 # repository; the Patch preambles still need individual patch files in SOURCES.
-for patch in src/rpm/sources/0*.patch; do
+for patch in src/rpm/sources/kernel/*.patch; do
     cp "$patch" "/var/tmp/sources/$(basename "$patch")"
 done
-cp src/rpm/sources/trimui.config /var/tmp/sources/trimui.config
-cp src/rpm/sources/required.config /var/tmp/sources/required.config
+cp src/rpm/sources/kernel/trimui.config /var/tmp/sources/trimui.config
+cp src/rpm/sources/kernel/required.config /var/tmp/sources/required.config
 
 rpmbuild -bb \
     --define '_topdir /var/tmp/rpmbuild' \

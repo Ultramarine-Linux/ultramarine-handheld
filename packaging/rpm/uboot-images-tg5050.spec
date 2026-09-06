@@ -28,6 +28,7 @@ BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  openssl-devel
 BuildRequires:  python3
+BuildRequires:  python3-setuptools
 BuildRequires:  swig
 
 %description
