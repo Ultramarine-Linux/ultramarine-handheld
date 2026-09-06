@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /var/tmp/sources /var/tmp/rpmbuild
+mkdir -p /var/tmp/sources /var/tmp/rpmbuild /work/out
 cp src/downloads/aic8800-batocera-ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz \
     /var/tmp/sources/ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz
 cp src/rpm/sources/firmware/aic_userconfig_8800d80.txt /var/tmp/sources/aic_userconfig_8800d80.txt
@@ -9,7 +9,8 @@ cp src/rpm/sources/firmware/aic_userconfig_8800d80.txt /var/tmp/sources/aic_user
 rpmbuild -bb \
     --define '_topdir /var/tmp/rpmbuild' \
     --define '_sourcedir /var/tmp/sources' \
-    --define "_rpmdir $PACKAGEDIR" \
+    --define '_rpmdir /work/artifacts' \
     --define '_build_name_fmt %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}.rpm' \
     --define '_binary_payload w3T.xzdio' \
     src/rpm/aic8800-firmware.spec
+

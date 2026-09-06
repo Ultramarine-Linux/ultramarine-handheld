@@ -65,7 +65,7 @@ jobs:
           name: kernel-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
           path: |
-            build/rpm-output/*.rpm
+            build/rpm-output/fedora~44~arm64/*.rpm
             build/rpm-output/*.buildinfo
             build/rpm-output/*.src.rpm
 
@@ -109,7 +109,7 @@ jobs:
           name: uboot-images-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
           path: |
-            build/rpm-output/*.rpm
+            build/rpm-output/fedora~44~arm64/*.rpm
             build/rpm-output/*.buildinfo
             build/rpm-output/*.src.rpm
 
@@ -150,6 +150,5 @@ jobs:
           name: aic8800-firmware-rpm-${{ github.sha }}
           if-no-files-found: error
           path: |
-            build/rpm-output/aic8800-firmware-*.rpm
-            /work/packages/aic8800-firmware-*.rpm
+            build/rpm-output/fedora~44~arm64/aic8800-firmware-*.rpm
             build/rpm-output/*.buildinfo

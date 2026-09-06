@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /var/tmp/sources /var/tmp/rpmbuild
+mkdir -p /var/tmp/sources /var/tmp/rpmbuild /work/src/output
 
 # rpmbuild expects URL sources to already exist in SOURCES. The host-side
 # download cache is mounted read-only by mkosi, using the exact RPM filenames.
@@ -20,7 +20,7 @@ cp src/rpm/sources/kernel/required.config /var/tmp/sources/required.config
 rpmbuild -bb \
     --define '_topdir /var/tmp/rpmbuild' \
     --define '_sourcedir /var/tmp/sources' \
-    --define "_rpmdir $PACKAGEDIR" \
+    --define '_rpmdir /work/artifacts' \
     --define '_build_name_fmt %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}.rpm' \
     --define '_binary_payload w3T.xzdio' \
     src/rpm/kernel-tg5050.spec

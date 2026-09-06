@@ -25,12 +25,18 @@ BuildRequires:  bison
 BuildRequires:  dtc
 BuildRequires:  flex
 BuildRequires:  gcc
+BuildRequires:  gnutls-devel
+BuildRequires:  libuuid-devel
 BuildRequires:  make
+BuildRequires:  ncurses-devel
 BuildRequires:  openssl-devel
 BuildRequires:  openssl-devel-engine
+BuildRequires:  perl-interpreter
 BuildRequires:  python3
 BuildRequires:  python3-devel
+BuildRequires:  python3-libfdt
 BuildRequires:  python3-setuptools
+BuildRequires:  SDL2-devel
 BuildRequires:  swig
 
 %description
