@@ -60,12 +60,18 @@ jobs:
             --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
+      - name: Locate kernel build artifacts
+        run: |
+          find /home/runner /__w "$GITHUB_WORKSPACE" \
+            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
       - name: Upload kernel RPMs
         uses: actions/upload-artifact@v4
         with:
           name: kernel-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
-          path: ${{ github.workspace }}/build/rpm-output/
+          path: build/rpm-output/
 
   uboot:
     name: uboot-images-tg5050 (Fedora ARM64 mkosi)
@@ -102,12 +108,18 @@ jobs:
             --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
+      - name: Locate U-Boot build artifacts
+        run: |
+          find /home/runner /__w "$GITHUB_WORKSPACE" \
+            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
       - name: Upload U-Boot RPM and boot artifacts
         uses: actions/upload-artifact@v4
         with:
           name: uboot-images-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
-          path: ${{ github.workspace }}/build/rpm-output/
+          path: build/rpm-output/
 
   firmware:
     name: aic8800-firmware (Fedora ARM64 mkosi)
@@ -141,9 +153,15 @@ jobs:
             --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
             --incremental=yes --force build
 
+      - name: Locate firmware build artifacts
+        run: |
+          find /home/runner /__w "$GITHUB_WORKSPACE" \
+            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
       - name: Upload AIC8800 firmware RPM
         uses: actions/upload-artifact@v4
         with:
           name: aic8800-firmware-rpm-${{ github.sha }}
           if-no-files-found: error
-          path: ${{ github.workspace }}/build/rpm-output/
+          path: build/rpm-output/
