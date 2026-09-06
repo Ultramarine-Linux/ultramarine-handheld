@@ -10,6 +10,8 @@ Source0:        https://github.com/batocera-linux/aic8800/archive/ccba7fffed8554
 # The board-specific config is maintained by the TG5050 mainline DTS repo.
 Source1000:     aic_userconfig_8800d80.txt
 
+%global debug_package %{nil}
+
 %description
 Firmware for the AIC8800D80 SDIO Wi-Fi/Bluetooth device used by the
 TrimUI Smart Pro S TG5050. The firmware payload is sourced from the pinned

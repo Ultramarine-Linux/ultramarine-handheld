@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+mkdir -p "$OUTPUTDIR"
+for rpm in "$PACKAGEDIR"/*.rpm; do
+    [ -f "$rpm" ] || continue
+    cp -f "$rpm" "$OUTPUTDIR/"
+done

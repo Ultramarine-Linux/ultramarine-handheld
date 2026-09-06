@@ -28,6 +28,7 @@ jobs:
   kernel:
     name: kernel-tg5050 (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
+    container: ghcr.io/terrapkg/builder:f44
     timeout-minutes: 180
     steps:
       - name: Check out sources
@@ -35,10 +36,9 @@ jobs:
 
       - name: Install mkosi and host tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes systemd-container curl git python3
+          dnf install --assumeyes systemd-container curl git python3
           git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          sudo ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
+          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
           mkosi --version
 
       - name: Prefetch RPM sources
@@ -54,7 +54,7 @@ jobs:
 
       - name: Build kernel RPMs in Fedora ARM64 mkosi
         run: |
-          sudo mkosi --directory=packaging/rpm-builder \
+          mkosi --directory=packaging/rpm-builder \
             --incremental=yes --force build
 
       - name: Upload kernel RPMs
@@ -70,6 +70,7 @@ jobs:
   uboot:
     name: uboot-images-tg5050 (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
+    container: ghcr.io/terrapkg/builder:f44
     timeout-minutes: 120
     steps:
       - name: Check out sources
@@ -77,10 +78,9 @@ jobs:
 
       - name: Install mkosi and host tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes systemd-container curl git python3
+          dnf install --assumeyes systemd-container curl git python3
           git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          sudo ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
+          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
           mkosi --version
 
       - name: Prefetch RPM sources
@@ -96,7 +96,7 @@ jobs:
 
       - name: Build U-Boot RPM in Fedora ARM64 mkosi
         run: |
-          sudo mkosi --directory=packaging/rpm-builder-uboot \
+          mkosi --directory=packaging/rpm-builder-uboot \
             --incremental=yes --force build
 
       - name: Upload U-Boot RPM and boot artifacts
@@ -112,6 +112,7 @@ jobs:
   firmware:
     name: aic8800-firmware (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
+    container: ghcr.io/terrapkg/builder:f44
     timeout-minutes: 30
     steps:
       - name: Check out sources
@@ -119,10 +120,9 @@ jobs:
 
       - name: Install mkosi and host tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes systemd-container curl git python3
+          dnf install --assumeyes systemd-container curl git python3
           git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          sudo ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
+          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
           mkosi --version
 
       - name: Prefetch firmware source
@@ -135,7 +135,7 @@ jobs:
 
       - name: Build AIC8800 firmware RPM in Fedora ARM64 mkosi
         run: |
-          sudo mkosi --directory=packaging/rpm-builder-firmware \
+          mkosi --directory=packaging/rpm-builder-firmware \
             --incremental=yes --force build
 
       - name: Upload AIC8800 firmware RPM
