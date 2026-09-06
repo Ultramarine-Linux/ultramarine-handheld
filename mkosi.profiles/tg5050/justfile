@@ -6,21 +6,27 @@ project := profile_dir / "../.."
 build_dir := project / "build"
 env_source := profile_dir / "board/trimui-linux-direct-root.env"
 env_image := build_dir / "env.img"
+env_file := build_dir / "uboot.env"
 env_partition_image := build_dir / "env-partition.img"
 
 # Build the board's 128 KiB U-Boot environment image.
 env:
     mkdir -p {{build_dir}}
     mkenvimage -s 0x20000 -p 0x00 -o {{env_image}} {{env_source}}
+    mkenvimage -s 0x20000 -p 0x00 -o {{env_file}} {{env_source}}
     test "$(stat -c %s {{env_image}})" -eq 131072
-    sha256sum {{env_image}}
+    test "$(stat -c %s {{env_file}})" -eq 131072
+    sha256sum {{env_image}} {{env_file}}
 
-# Build the complete 16 MiB p2 partition: active environment at offset zero,
-# with the verified all-zero remainder used by the compact SD baseline.
+# The environment is now an optional file on the p1 ESP; no environment
+# partition is generated for the two-partition mainline layout.
 
 # Stage versioned kernel artifacts and BLS files for the mainline mkosi image.
-mainline-boot-tree: mainline-modules mainline-kernel
-    sudo {{profile_dir}}/image/stage-systemd-boot {{build_dir}}/mainline-boot-tree
+mainline-boot-tree: env mainline-modules mainline-kernel stage-kernel-rpm
+    sudo {{profile_dir}}/image/stage-systemd-boot {{build_dir}}/mainline-boot-tree {{build_dir}}/mainline-kernel-rpm-tree
+
+stage-kernel-rpm:
+    {{profile_dir}}/image/stage-kernel-rpm {{quote(build_dir / "anda-rpms")}} {{quote(build_dir / "mainline-kernel-rpm-tree")}}
 
 # Build the complete GPT image, including ESP and p4, with mkosi/repart.
 mainline-disk: mainline-boot-tree
@@ -32,9 +38,9 @@ rootfs: mainline-disk
 bootimg:
     {{profile_dir}}/board/android_image/build-p3 --original-ramdisk
 
-# Build mainline SPL + U-Boot FIT inside the board-owned Fedora 44 sandbox.
+# Extract packaged mainline SPL + U-Boot FIT for raw-sector flashing.
 mainline-uboot:
-    mkosi --directory={{profile_dir}}/board/mainline-uboot --force
+    {{profile_dir}}/image/stage-uboot-rpm {{quote(build_dir / "anda-rpms")}} {{quote(build_dir / "mainline-uboot-artifacts")}}
 
 # Apply the pinned TG5050 patchset to a Linux v7.2 tree and build Image/modules/DTB.
 mainline-kernel:
@@ -68,6 +74,7 @@ mainline-initramfs:
 mainline-image: mainline-disk mainline-uboot
     {{profile_dir}}/image/assemble-mainline-image
 
+
 # Incrementally flash mainline SPL/FIT and the p1 boot payload. This leaves
 # the GPT, environment, and rootfs untouched. Example: just flash-mainline /dev/sdX
 flash-mainline target:
@@ -81,7 +88,10 @@ flash-mainline target:
     esp_tree='{{build_dir}}/esp-tree'
     test -f "$spl" -a -f "$fit" -a -f "$esp_tree/EFI/BOOT/BOOTAA64.EFI"
     test "$(stat -c %s "$spl")" -le 131072 || { echo "SPL overlaps FIT slot" >&2; exit 1; }
-    test "$(stat -c %s "$fit")" -le 37486592 || { echo "FIT overlaps GPT/partitions" >&2; exit 1; }
+    # Raw FIT slot is LBA 512 through the sector before p1 at LBA 2048.
+    test "$(stat -c %s "$fit")" -le $(((2048 - 512) * 512)) || {
+        echo "FIT overlaps p1/GPT layout" >&2; exit 1;
+    }
     mountpoint=$(mktemp -d)
     cleanup() { sudo umount "$mountpoint" 2>/dev/null || true; sudo rmdir "$mountpoint" 2>/dev/null || true; }
     trap cleanup EXIT
@@ -108,14 +118,14 @@ flash-mainline target:
     sudo umount "$mountpoint"
     echo "incremental mainline flash verified: $target"
 
-# Rewrite only p4 from the generated image, preserving GPT and p1-p3.
+# Rewrite only p3 from the generated image, preserving GPT and p1-p2.
 # Example: just flash-rootfs /dev/sdX
 flash-rootfs target:
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
     part=$({{profile_dir}}/image/validate-target "$target")
-    rootdev="${part}4"
+    rootdev="${part}3"
     ! findmnt "$rootdev" >/dev/null || {
         echo "root partition is mounted: $rootdev" >&2
         exit 1
@@ -125,11 +135,11 @@ flash-rootfs target:
     loop=$(sudo losetup --find --show --read-only --partscan "$image")
     cleanup() { sudo losetup -d "$loop" 2>/dev/null || true; }
     trap cleanup EXIT
-    source="${loop}p4"
+    source="${loop}p3"
     source_size=$(sudo blockdev --getsize64 "$source")
     target_size=$(sudo blockdev --getsize64 "$rootdev")
     test "$source_size" = "$target_size" || {
-        echo "p4 size mismatch: source=$source_size target=$target_size" >&2
+        echo "p3 size mismatch: source=$source_size target=$target_size" >&2
         exit 1
     }
     sudo e2fsck -fn "$source"
@@ -137,7 +147,7 @@ flash-rootfs target:
     sudo blockdev --flushbufs "$target"
     sudo cmp "$source" "$rootdev"
     sudo e2fsck -fn "$rootdev"
-    echo "rootfs p4 flash verified: $rootdev"
+    echo "rootfs p3 flash verified: $rootdev"
 
 # Reproduce the untouched SD reference carrier byte-for-byte.
 bootimg-reference:

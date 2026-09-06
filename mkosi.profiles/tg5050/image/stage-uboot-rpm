@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Stage SPL/FIT files from the packaged U-Boot RPM for raw-sector flashing.
+set -euo pipefail
+
+rpm_dir=$(realpath "${1:?usage: stage-uboot-rpm <rpm-dir> <output-dir>}")
+out=$(realpath -m "${2:?usage: stage-uboot-rpm <rpm-dir> <output-dir>}")
+mapfile -t rpms < <(find "$rpm_dir" -type f -name 'uboot-images-tg5050-*.aarch64.rpm' -print)
+(( ${#rpms[@]} == 1 )) || {
+    printf 'expected exactly one U-Boot RPM in %s, found %d\n' "$rpm_dir" "${#rpms[@]}" >&2
+    exit 1
+}
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+rpm2cpio "${rpms[0]}" | cpio --extract --directory="$work" --make-directories --quiet
+
+rm -rf "$out"
+mkdir -p "$out"
+for artifact in sunxi-spl.bin u-boot.itb; do
+    input="$work/usr/lib/uboot/tg5050/$artifact"
+    test -f "$input" || { echo "missing packaged U-Boot artifact: $input" >&2; exit 1; }
+    install -m 0644 "$input" "$out/$artifact"
+done
+sha256sum "$out/sunxi-spl.bin" "$out/u-boot.itb" > "$out/SHA256SUMS"
+printf 'staged packaged U-Boot artifacts in %s\n' "$out"

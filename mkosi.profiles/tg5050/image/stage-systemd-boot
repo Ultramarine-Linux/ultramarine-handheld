@@ -2,30 +2,34 @@
 # Stage the custom kernel and DTB; mkosi generates the initrd and module initrd.
 set -euo pipefail
 
-boot=$(realpath "${1:?usage: stage-systemd-boot <boot-tree>}")
+boot=$(realpath "${1:?usage: stage-systemd-boot <boot-tree> <kernel-tree>}")
+kernel_tree=$(realpath "${2:?usage: stage-systemd-boot <boot-tree> <kernel-tree>}")
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 profile=$(cd -- "$script_dir/.." && pwd)
 project=$(cd -- "$profile/../.." && pwd)
 build="$project/build"
-kernel="$build/mainline-src/linux/arch/arm64/boot/Image"
-dtb="$build/mainline-src/linux/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+kernel_tree_kernel=$(find "$kernel_tree/boot" -maxdepth 1 -type f -name 'vmlinuz-*' -print -quit)
+kernel="$kernel_tree_kernel"
 
-for input in "$kernel" "$dtb"; do
-    test -f "$input" || { echo "missing boot input: $input" >&2; exit 1; }
-done
-
-mapfile -t releases < <(find "$build/mainline-module-tree/lib/modules" \
+mapfile -t releases < <(find "$kernel_tree/usr/lib/modules" \
     -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 (( ${#releases[@]} == 1 )) || {
     printf 'expected exactly one kernel module release, found %d\n' "${#releases[@]}" >&2
     exit 1
 }
 release=${releases[0]}
+dtb=$(find "$kernel_tree/usr/lib/modules/$release" -maxdepth 1 -type f -name 'dtb-sun55i-a523-trimui-smart-pro-s.dtb' -print -quit)
+for input in "$kernel" "$dtb"; do
+    test -f "$input" || { echo "missing boot input: $input" >&2; exit 1; }
+done
 
 rm -rf "$boot"
 mkdir -p "$boot/dtb-$release/allwinner" "$boot/loader/entries"
 install -m 0644 "$kernel" "$boot/vmlinuz-$release"
 install -m 0644 "$dtb" "$boot/dtb-$release/allwinner/sun55i-a523-trimui-smart-pro-s.dtb"
+if [[ -f "$build/uboot.env" ]]; then
+    install -m 0644 "$build/uboot.env" "$boot/uboot.env"
+fi
 
 cat > "$boot/loader/loader.conf" <<EOF
 default ultramarine-$release.conf
@@ -40,7 +44,7 @@ linux /tg5050-mainline/$release/vmlinuz
 initrd /tg5050-mainline/initrd
 initrd /tg5050-mainline/$release/kernel-modules.initrd
 devicetree /dtb-$release/allwinner/sun55i-a523-trimui-smart-pro-s.dtb
-options console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon root=/dev/mmcblk0p4 rootwait rdinit=/init loglevel=7 panic=10
+options console=tty0 console=ttyGS0 console=ttyS0,115200 earlycon root=/dev/mmcblk0p3 rootwait rdinit=/init loglevel=7 panic=10
 EOF
 
 printf 'staged kernel/DTB BLS tree; mkosi will generate initrd for %s\n' "$release"
