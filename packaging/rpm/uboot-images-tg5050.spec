@@ -10,6 +10,8 @@ Source0:        https://github.com/u-boot/u-boot/archive/e354b34a6ab4b1887fd451b
 Source1:        https://github.com/jernejsk/arm-trusted-firmware/archive/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz
 Source1000:     trimui-tg5050_defconfig
 
+%global debug_package %{nil}
+
 Patch1001:      0001-configs-add-Trimui-Smart-Pro-S-sun55i-a523-TG5050.patch
 Patch1002:      0002-mmc-sunxi-use-PERIPH0-600M-mux-source-for-A523-micro.patch
 Patch1003:      0003-sunxi-deterministic-raw-U-Boot-sector-for-A523-128-K.patch
