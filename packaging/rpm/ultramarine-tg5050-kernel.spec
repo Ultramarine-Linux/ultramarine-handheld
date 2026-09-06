@@ -36,5 +36,5 @@ cp -a kernel/. %{buildroot}/
 /usr/share/tg5050/dtb/sun55i-a523-trimui-smart-pro-s.dtb
 
 %changelog
-* Sun Sep 06 2026 Ultramarine TG5050 Maintainers <noreply@example.invalid> - 7.2.0-1.tg5050
+* Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-1.tg5050
 - Package the matched TG5050 mainline kernel, modules, firmware, DTB, and initrds.

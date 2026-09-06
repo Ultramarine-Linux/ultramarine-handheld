@@ -142,6 +142,6 @@ rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{
 /usr/lib/modules/%{krel}/modules.weakdep
 
 %changelog
-* Sun Sep 06 2026 Ultramarine TG5050 Maintainers <noreply@example.invalid> - 7.2.0-1.tg5050
+* Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-1.tg5050
 - Build the TG5050 kernel using Fedora-style alternate-kernel packaging.
 - Apply the complete TG5050 integration through RPM Patch entries.

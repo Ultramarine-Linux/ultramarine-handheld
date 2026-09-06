@@ -74,6 +74,6 @@ install -m 0644 u-boot-sunxi-with-spl.fit.itb \
 /usr/lib/uboot/tg5050/u-boot.itb
 
 %changelog
-* Sun Sep 06 2026 Ultramarine TG5050 Maintainers <noreply@example.invalid> - 2026.07-1.tg5050
+* Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 2026.07-1.tg5050
 - Build and package the matched TG5050 U-Boot SPL and FIT from source.
 - Apply board changes through RPM Patch entries.

@@ -41,6 +41,6 @@ install -m 0644 %{SOURCE1000} \
 /usr/lib/firmware/aic8800D80/lmacfw_rf_8800d80_u02.bin
 
 %changelog
-* Sun Sep 06 2026 Ultramarine TG5050 Maintainers <noreply@example.invalid> - 2024.06.25-1.tg5050
+* Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 2024.06.25-1.tg5050
 - Package the pinned KNULLI/Batocera AIC8800D80 firmware set.
 - Override the generic user configuration with the TG5050 board configuration.
