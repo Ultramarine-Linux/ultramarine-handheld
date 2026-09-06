@@ -45,6 +45,7 @@ Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 
 %global buildid .tg5050
 %global krel 7.2.0-rc3-tg5050
+%global krel_rpm 7.2.0-rc3.tg5050
 %global kernel_package_name kernel
 %global kernel_build_dir %{_builddir}/kernel-build
 %global _binary_payload w3T.xzdio
@@ -74,7 +75,7 @@ Fedora-compatible kernel paths and release metadata.
 %package core
 Summary:        Core files for the TG5050 alternate kernel
 Requires:       %{name} = %{version}-%{release}
-Provides:       kernel-uname-r = %{krel}
+Provides:       kernel-uname-r = %{krel_rpm}
 
 %description core
 The bootable Image, board device tree, and built-in kernel metadata for the
@@ -119,7 +120,8 @@ mkdir -p %{buildroot}/boot %{buildroot}/usr/lib/modules/%{krel}
 install -m 0644 arch/arm64/boot/Image %{buildroot}/boot/vmlinuz-%{krel}
 install -m 0644 arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb \
     %{buildroot}/usr/lib/modules/%{krel}/dtb-sun55i-a523-trimui-smart-pro-s.dtb
-make modules_install INSTALL_MOD_PATH=%{buildroot}/usr INSTALL_MOD_STRIP=1
+test "$(make -s kernelrelease)" = "%{krel}"
+make modules_install KERNELRELEASE="%{krel}" INSTALL_MOD_PATH=%{buildroot}/usr INSTALL_MOD_STRIP=1
 rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{krel}/source
 
 %files
