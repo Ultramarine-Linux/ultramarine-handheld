@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   kernel:
-    name: kernel-tg5050 (Fedora ARM64 mkosi)
+    name: kernel-tg5050 (Andaman RPM)
     runs-on: ubuntu-24.04-arm
     container:
       image: ghcr.io/terrapkg/builder:f44
@@ -36,34 +36,22 @@ jobs:
       - name: Check out sources
         uses: actions/checkout@v4
 
-      - name: Install mkosi and host tools
+      - name: Install RPM build tools
         run: |
-          dnf install --assumeyes systemd-container curl git python3
-          git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
-          mkosi --version
+          dnf install --assumeyes dnf-plugins-core git python3
 
-      - name: Prefetch RPM sources
+      - name: Install kernel build dependencies
         run: |
-          set -eux
-          mkdir -p build/rpm-sources build/rpm-output
-          curl --fail --location --retry 3 \
-            -o build/rpm-sources/v7.2-rc3.tar.gz \
-            https://github.com/torvalds/linux/archive/refs/tags/v7.2-rc3.tar.gz
-          curl --fail --location --retry 3 \
-            -o build/rpm-sources/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz \
-            https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
+          dnf builddep --assumeyes packaging/rpm/kernel/kernel-tg5050.spec
 
-      - name: Build kernel RPMs in Fedora ARM64 mkosi
+      - name: Build kernel RPMs with Andaman
         run: |
-          mkosi --directory=packaging/rpm-builder \
-            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
-            --incremental=yes --force build
+          anda build -rrpmbuild packaging/rpm/kernel
 
       - name: Locate kernel build artifacts
         run: |
-          find /home/runner /__w "$GITHUB_WORKSPACE" \
-            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
             -print 2>/dev/null || true
 
       - name: Upload kernel RPMs
@@ -71,10 +59,10 @@ jobs:
         with:
           name: kernel-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
-          path: build/rpm-output/
+          path: anda-build/
 
   uboot:
-    name: uboot-images-tg5050 (Fedora ARM64 mkosi)
+    name: uboot-images-tg5050 (Andaman RPM)
     runs-on: ubuntu-24.04-arm
     container:
       image: ghcr.io/terrapkg/builder:f44
@@ -84,34 +72,22 @@ jobs:
       - name: Check out sources
         uses: actions/checkout@v4
 
-      - name: Install mkosi and host tools
+      - name: Install RPM build tools
         run: |
-          dnf install --assumeyes systemd-container curl git python3
-          git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
-          mkosi --version
+          dnf install --assumeyes dnf-plugins-core git python3
 
-      - name: Prefetch RPM sources
+      - name: Install U-Boot build dependencies
         run: |
-          set -eux
-          mkdir -p build/rpm-sources build/rpm-output
-          curl --fail --location --retry 3 \
-            -o build/rpm-sources/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz \
-            https://github.com/u-boot/u-boot/archive/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz
-          curl --fail --location --retry 3 \
-            -o build/rpm-sources/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz \
-            https://github.com/jernejsk/arm-trusted-firmware/archive/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz
+          dnf builddep --assumeyes packaging/rpm/uboot/uboot-images-tg5050.spec
 
-      - name: Build U-Boot RPM in Fedora ARM64 mkosi
+      - name: Build U-Boot RPM with Andaman
         run: |
-          mkosi --directory=packaging/rpm-builder-uboot \
-            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
-            --incremental=yes --force build
+          anda build -rrpmbuild packaging/rpm/uboot
 
       - name: Locate U-Boot build artifacts
         run: |
-          find /home/runner /__w "$GITHUB_WORKSPACE" \
-            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
             -print 2>/dev/null || true
 
       - name: Upload U-Boot RPM and boot artifacts
@@ -119,10 +95,10 @@ jobs:
         with:
           name: uboot-images-tg5050-rpms-${{ github.sha }}
           if-no-files-found: error
-          path: build/rpm-output/
+          path: anda-build/
 
   firmware:
-    name: aic8800-firmware (Fedora ARM64 mkosi)
+    name: aic8800-firmware (Andaman RPM)
     runs-on: ubuntu-24.04-arm
     container:
       image: ghcr.io/terrapkg/builder:f44
@@ -132,31 +108,22 @@ jobs:
       - name: Check out sources
         uses: actions/checkout@v4
 
-      - name: Install mkosi and host tools
+      - name: Install RPM build tools
         run: |
-          dnf install --assumeyes systemd-container curl git python3
-          git clone --depth=1 https://github.com/systemd/mkosi.git "$RUNNER_TEMP/mkosi"
-          ln -sf "$RUNNER_TEMP/mkosi/bin/mkosi" /usr/local/bin/mkosi
-          mkosi --version
+          dnf install --assumeyes dnf-plugins-core git python3
 
-      - name: Prefetch firmware source
+      - name: Install firmware build dependencies
         run: |
-          set -eux
-          mkdir -p build/rpm-sources build/rpm-output
-          curl --fail --location --retry 3 \
-            -o build/rpm-sources/aic8800-batocera-ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz \
-            https://github.com/batocera-linux/aic8800/archive/ccba7fffed8554fe861bd631ff6f852d2d6eec39.tar.gz
+          dnf builddep --assumeyes packaging/rpm/firmware/aic8800-firmware.spec
 
-      - name: Build AIC8800 firmware RPM in Fedora ARM64 mkosi
+      - name: Build AIC8800 firmware RPM with Andaman
         run: |
-          mkosi --directory=packaging/rpm-builder-firmware \
-            --output-directory="$GITHUB_WORKSPACE/build/rpm-output" \
-            --incremental=yes --force build
+          anda build -rrpmbuild packaging/rpm/firmware
 
       - name: Locate firmware build artifacts
         run: |
-          find /home/runner /__w "$GITHUB_WORKSPACE" \
-            -type f \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
             -print 2>/dev/null || true
 
       - name: Upload AIC8800 firmware RPM
@@ -164,4 +131,4 @@ jobs:
         with:
           name: aic8800-firmware-rpm-${{ github.sha }}
           if-no-files-found: error
-          path: build/rpm-output/
+          path: anda-build/
