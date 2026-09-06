@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: arm64-rpm-${{ github.ref }}
@@ -32,9 +33,17 @@ jobs:
       image: ghcr.io/terrapkg/builder:f44
       options: --privileged
     timeout-minutes: 180
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      CC: "sccache gcc"
+      HOSTCC: "sccache gcc"
+      HOSTCXX: "sccache g++"
     steps:
       - name: Check out sources
         uses: actions/checkout@v4
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Install RPM build tools
         run: |
@@ -68,9 +77,17 @@ jobs:
       image: ghcr.io/terrapkg/builder:f44
       options: --privileged
     timeout-minutes: 120
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      CC: "sccache gcc"
+      HOSTCC: "sccache gcc"
+      HOSTCXX: "sccache g++"
     steps:
       - name: Check out sources
         uses: actions/checkout@v4
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Install RPM build tools
         run: |
