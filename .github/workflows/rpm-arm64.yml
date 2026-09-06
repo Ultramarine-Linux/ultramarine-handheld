@@ -28,7 +28,9 @@ jobs:
   kernel:
     name: kernel-tg5050 (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
-    container: ghcr.io/terrapkg/builder:f44
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
     timeout-minutes: 180
     steps:
       - name: Check out sources
@@ -70,7 +72,9 @@ jobs:
   uboot:
     name: uboot-images-tg5050 (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
-    container: ghcr.io/terrapkg/builder:f44
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
     timeout-minutes: 120
     steps:
       - name: Check out sources
@@ -112,7 +116,9 @@ jobs:
   firmware:
     name: aic8800-firmware (Fedora ARM64 mkosi)
     runs-on: ubuntu-24.04-arm
-    container: ghcr.io/terrapkg/builder:f44
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
     timeout-minutes: 30
     steps:
       - name: Check out sources
