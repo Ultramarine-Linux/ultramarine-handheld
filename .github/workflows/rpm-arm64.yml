@@ -55,9 +55,7 @@ jobs:
 
       - name: Build kernel RPMs with Andaman
         run: |
-          sccache --zero-stats
-          env SCCACHE_GHA_ENABLED="${SCCACHE_GHA_ENABLED}" \
-            anda build -rrpmbuild packaging/rpm/kernel
+          anda build -rrpmbuild packaging/rpm/kernel
 
       - name: Show kernel sccache statistics
         if: always()
