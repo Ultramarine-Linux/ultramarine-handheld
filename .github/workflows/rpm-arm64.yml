@@ -57,12 +57,6 @@ jobs:
         run: |
           anda build -rrpmbuild packaging/rpm/kernel
 
-      - name: Flush sccache after kernel build
-        if: ${{ always() }}
-        run: |
-          sccache --show-stats || true
-          sccache --stop-server || true
-
       - name: Locate kernel build artifacts
         run: |
           find anda-build -type f \
@@ -106,12 +100,6 @@ jobs:
       - name: Build U-Boot RPM with Andaman
         run: |
           anda build -rrpmbuild packaging/rpm/uboot
-
-      - name: Flush sccache after U-Boot build
-        if: ${{ always() }}
-        run: |
-          sccache --show-stats || true
-          sccache --stop-server || true
 
       - name: Locate U-Boot build artifacts
         run: |
