@@ -6,8 +6,11 @@ License:        GPL-2.0-only
 URL:            https://github.com/torvalds/linux
 Source0:        https://github.com/torvalds/linux/archive/refs/tags/v7.2-rc3.tar.gz
 Source2:        https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
+Source3:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2.patch
+Source4:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2-fix-kernel7.1.patch
 Source1000:      trimui.config
 Source1001:      required.config
+Source1002:      aic8800-warpme-v7.2.patch
 
 Patch1001: 0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch
 Patch1002: 0002-phy-allwinner-add-sun55i-DSI-combo-D-PHY.patch
@@ -59,8 +62,10 @@ BuildRequires:  bash
 BuildRequires:  bc
 BuildRequires:  binutils
 BuildRequires:  bison
+BuildRequires:  curl
 BuildRequires:  flex
 BuildRequires:  gcc
+BuildRequires:  kmod
 BuildRequires:  make
 BuildRequires:  openssl-devel
 BuildRequires:  tar
@@ -92,6 +97,16 @@ Provides:       kernel-modules-uname-r = 7.2.0-rc3.tg5050
 %description modules
 Loadable kernel modules for the TG5050 alternate kernel.
 
+%package -n kmod-aic8800
+Summary:        AIC8800 SDIO Wi-Fi/Bluetooth modules for the TG5050 kernel
+Requires:       %{name}-modules = %{version}-%{release}
+Provides:       kmod-aic8800 = %{version}-%{release}
+
+%description -n kmod-aic8800
+Out-of-tree AIC8800 SDIO Wi-Fi and Bluetooth modules built against the
+TG5050 kernel ABI. This package contains aic8800_bsp, aic8800_fdrv, and
+aic8800_btlpm; it does not compile anything on the target device.
+
 %prep
 %autosetup -n linux-7.2-rc3 -p1
 mkdir integration
@@ -111,12 +126,37 @@ export ARCH=arm64
 export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
 export KBUILD_BUILD_TIMESTAMP="%{SOURCE_DATE_EPOCH}"
+if command -v sccache >/dev/null 2>&1; then
+    export CC="sccache gcc"
+    export HOSTCC="sccache gcc"
+    export HOSTCXX="sccache g++"
+fi
 make defconfig
 ./scripts/kconfig/merge_config.sh -m .config trimui.config required.config
 scripts/config --set-str CONFIG_LOCALVERSION "-tg5050"
 make olddefconfig
 make %{?_smp_mflags} Image modules
 make allwinner/sun55i-a523-trimui-smart-pro-s.dtb
+
+# Build the pinned AIC8800 SDIO Wi-Fi/Bluetooth backport out of tree against
+# this exact kernel configuration and release. The two upstream patches are
+# pinned Sources; the local patch carries the v7.2 API delta.
+make modules_prepare
+rm -rf aic8800-build
+mkdir -p aic8800-build/src
+cd aic8800-build/src
+patch -p1 -f --no-backup-if-mismatch < %{SOURCE3} >/dev/null 2>&1 || true
+patch -p1 -f --no-backup-if-mismatch < %{SOURCE4} >/dev/null 2>&1 || true
+test -f drivers/net/wireless/aic8800_sdio/aic8800_fdrv/rwnx_main.c
+patch -p1 < %{SOURCE1002}
+env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
+    make -C ../.. %{?_smp_mflags} ARCH=arm64 \
+    M="$PWD/drivers/net/wireless/aic8800_sdio" \
+    CONFIG_AIC_SDIO_WLAN_SUPPORT=y \
+    CONFIG_AIC8800_WLAN_SUPPORT=m \
+    CONFIG_AIC8800_BTLPM_SUPPORT=m \
+    modules
+cd ../..
 
 %install
 rm -rf %{buildroot}
@@ -127,6 +167,11 @@ install -m 0644 arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb
     %{buildroot}/usr/lib/modules/%{krel}/dtb/sun55i-a523-trimui-smart-pro-s.dtb
 test "$(make -s kernelrelease)" = "%{krel}"
 make modules_install KERNELRELEASE="%{krel}" INSTALL_MOD_PATH=%{buildroot}/usr INSTALL_MOD_STRIP=
+while IFS= read -r -d '' module; do
+    install -D -m 0644 "$module" \
+        "%{buildroot}/usr/lib/modules/%{krel}/extra/aic8800/$(basename "$module")"
+done < <(find aic8800-build/src/drivers/net/wireless/aic8800_sdio -type f -name '*.ko' -print0)
+depmod -b %{buildroot} %{krel}
 rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{krel}/source
 
 %files
@@ -146,7 +191,23 @@ rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{
 /usr/lib/modules/%{krel}/modules.devname
 /usr/lib/modules/%{krel}/modules.weakdep
 
+%files -n kmod-aic8800
+/usr/lib/modules/%{krel}/extra/aic8800
+
+%post -n kmod-aic8800
+if [ -x %{_sbindir}/depmod ]; then
+    %{_sbindir}/depmod -a %{krel} || :
+fi
+
+%postun -n kmod-aic8800
+if [ -x %{_sbindir}/depmod ]; then
+    %{_sbindir}/depmod -a %{krel} || :
+fi
+
 %changelog
+* Mon Sep 07 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-1.tg5050
+- Build and package the pinned AIC8800 SDIO Wi-Fi/Bluetooth modules.
+
 * Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-1.tg5050
 - Build the TG5050 kernel using Fedora-style alternate-kernel packaging.
 - Apply the complete TG5050 integration through RPM Patch entries.

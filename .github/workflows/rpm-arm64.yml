@@ -45,6 +45,14 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.10
 
+      - name: Verify sccache compiler wrapper
+        run: |
+          command -v sccache
+          sccache --version
+          sccache --zero-stats
+          printf 'int main(void) { return 0; }\n' | sccache gcc -x c -c -o /tmp/sccache-probe.o -
+          sccache --show-stats
+
       - name: Install RPM build tools
         run: |
           dnf install --assumeyes dnf-plugins-core git python3
@@ -55,7 +63,16 @@ jobs:
 
       - name: Build kernel RPMs with Andaman
         run: |
-          anda build -rrpmbuild packaging/rpm/kernel
+          env \
+            CC="${CC}" \
+            HOSTCC="${HOSTCC}" \
+            HOSTCXX="${HOSTCXX}" \
+            SCCACHE_GHA_ENABLED="${SCCACHE_GHA_ENABLED}" \
+            anda build -rrpmbuild packaging/rpm/kernel
+
+      - name: Show kernel sccache statistics
+        if: always()
+        run: sccache --show-stats
 
       - name: Locate kernel build artifacts
         run: |

@@ -30,7 +30,6 @@ mainline-disk: env
     spl='{{build_dir}}/mainline-uboot-artifacts/sunxi-spl.bin'
     fit='{{build_dir}}/mainline-uboot-artifacts/u-boot.itb'
     test -f "$spl" -a -f "$fit"
-    {{profile_dir}}/image/stage-mainline-dtb "$image"
     test "$(stat -c %s "$spl")" -le 131072
     test "$(stat -c %s "$fit")" -le $(((2048 - 512) * 512))
     sudo dd if="$spl" of="$image" bs=512 seek=256 conv=notrunc,fsync status=progress
