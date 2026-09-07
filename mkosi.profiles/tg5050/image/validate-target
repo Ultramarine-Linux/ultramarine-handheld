@@ -19,7 +19,7 @@ case "$target" in
 esac
 
 disk_guid=$(sudo sfdisk -d "$target" | sed -n 's/^label-id: //p')
-[[ ${disk_guid,,} == bee15ceb-86a0-423e-8f81-7f674e42714c ]] || {
+[[ ${disk_guid,,} == f32f06d7-3d54-4981-a471-304e5b29d17c ]] || {
     echo "unexpected GPT disk GUID on $target: $disk_guid" >&2
     exit 1
 }
@@ -36,10 +36,10 @@ check_partition() {
     [[ $(lsblk -dn -o PARTUUID "$device" | tr '[:upper:]' '[:lower:]') == "$uuid" ]] || {
         echo "unexpected PARTUUID on $device" >&2; exit 1;
     }
-    [[ $(lsblk -bdn -o START "$device") == "$start" ]] || {
+    [[ $(lsblk -dn -o START "$device" | tr -d ' ') == "$start" ]] || {
         echo "unexpected start sector on $device" >&2; exit 1;
     }
-    [[ $(lsblk -bdn -o SIZE "$device") == "$size" ]] || {
+    [[ $(lsblk -bdn -o SIZE "$device" | tr -d ' ') == "$size" ]] || {
         echo "unexpected size on $device" >&2; exit 1;
     }
     ! findmnt -rn -S "$device" >/dev/null || {

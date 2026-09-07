@@ -6,7 +6,7 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 profile=$(cd -- "$script_dir/.." && pwd)
 project=$(cd -- "$profile/../.." && pwd)
 build="$project/build"
-out="$build/ultramarine-trimui-mainline-6g.raw"
+out="$build/ultramarine-trimui-mainline.raw"
 spl="$build/mainline-uboot-artifacts/sunxi-spl.bin"
 fit="$build/mainline-uboot-artifacts/u-boot.itb"
 
@@ -14,10 +14,12 @@ for input in "$out" "$spl" "$fit"; do
     test -f "$input" || { echo "missing required input: $input" >&2; exit 1; }
 done
 test "$(stat -c %s "$spl")" -le 131072 || { echo "SPL overlaps FIT slot" >&2; exit 1; }
-test "$(stat -c %s "$fit")" -le 37486592 || { echo "FIT overlaps GPT/partitions" >&2; exit 1; }
+test "$(stat -c %s "$fit")" -le $(((2048 - 512) * 512)) || {
+    echo "FIT overlaps p1/GPT layout" >&2
+    exit 1
+}
 
-sudo sfdisk --relocate gpt-bak-std "$out"
-sudo sfdisk --disk-id "$out" BEE15CEB-86A0-423E-8F81-7F674E42714C
+sudo sgdisk -e "$out"
 sudo dd if="$spl" of="$out" bs=512 seek=256 conv=notrunc,fsync status=progress
 sudo dd if="$fit" of="$out" bs=512 seek=512 conv=notrunc,fsync status=progress
 sudo blockdev --flushbufs "$out" 2>/dev/null || true
@@ -26,6 +28,6 @@ spl_size=$(stat -c %s "$spl")
 fit_size=$(stat -c %s "$fit")
 sudo dd if="$out" bs=512 skip=256 count=$(((spl_size + 511) / 512)) status=none | cmp -n "$spl_size" - "$spl"
 sudo dd if="$out" bs=512 skip=512 count=$(((fit_size + 511) / 512)) status=none | cmp -n "$fit_size" - "$fit"
-sudo sfdisk --verify "$out" >/dev/null
+sudo sgdisk -v "$out"
 printf 'mainline SPL/FIT overlay verified: %s\n' "$out"
 sha256sum "$out"
