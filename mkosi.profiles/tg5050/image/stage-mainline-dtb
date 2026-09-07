@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Stage the packaged Linux DTB for systemd-boot BLS booting.
+set -euo pipefail
+
+image=${1:?usage: stage-mainline-dtb IMAGE}
+root_kver=7.2.0-rc3-tg5050
+dtb_name=sun55i-a523-trimui-smart-pro-s.dtb
+loop=$(sudo losetup --find --show --partscan "$image")
+esp=$(mktemp -d)
+root=$(mktemp -d)
+cleanup() {
+    sudo umount "$esp" "$root" 2>/dev/null || true
+    sudo losetup -d "$loop" 2>/dev/null || true
+    rmdir "$esp" "$root" 2>/dev/null || true
+}
+trap cleanup EXIT
+sleep 1
+sudo mount "$loop"p1 "$esp"
+sudo mount -o ro "$loop"p3 "$root"
+source="$root/usr/lib/modules/$root_kver/$dtb_name"
+destination="$esp/tg5050-mainline/$root_kver/$dtb_name"
+test -f "$source"
+sudo install -D -m 0644 "$source" "$destination"
+for entry in "$esp"/loader/entries/*.conf; do
+    [ -e "$entry" ] || continue
+    sudo sed -i '/^devicetree /d' "$entry"
+    printf 'devicetree /tg5050-mainline/%s/%s\n' "$root_kver" "$dtb_name" | sudo tee -a "$entry" >/dev/null
+done
+sync
+printf 'staged Linux DTB and BLS devicetree entry in %s\n' "$image"

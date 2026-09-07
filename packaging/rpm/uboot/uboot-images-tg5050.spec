@@ -3,6 +3,7 @@ Version:        2026.07
 Release:        1.tg5050%{?dist}
 Summary:        Fedora-style mainline U-Boot images for TrimUI Smart Pro S
 License:        GPL-2.0-only
+BuildArch:      noarch
 URL:            https://github.com/MidG971/u-boot
 
 # Exact known-good manual-build tree from the pinned MidG971 fork.
@@ -17,6 +18,7 @@ BuildRequires:  bc
 BuildRequires:  bison
 BuildRequires:  dtc
 BuildRequires:  flex
+BuildRequires:  gcc-aarch64-linux-gnu
 BuildRequires:  gcc
 BuildRequires:  gnutls-devel
 BuildRequires:  libuuid-devel
@@ -46,12 +48,14 @@ cp %{SOURCE1000} configs/trimui-tg5050_defconfig
 
 %build
 export ARCH=arm64
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS CC CXX HOSTCC HOSTCXX
+export CROSS_COMPILE=aarch64-linux-gnu-
 env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
-    make -C ../tfa-a523 PLAT=sun55i_a523 DEBUG=0 \
+    make -C ../tfa-a523 PLAT=sun55i_a523 DEBUG=1 \
     ENABLE_STACK_PROTECTOR=none bl31
 make trimui-tg5050_defconfig
 make olddefconfig
-make %{?_smp_mflags} BL31=../tfa-a523/build/sun55i_a523/release/bl31.bin
+make %{?_smp_mflags} BL31=../tfa-a523/build/sun55i_a523/debug/bl31.bin
 
 %install
 rm -rf %{buildroot}
@@ -69,3 +73,4 @@ install -m 0644 u-boot-sunxi-with-spl.fit.itb \
 * Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 2026.07-1.tg5050
 - Build and package the matched TG5050 U-Boot SPL and FIT from source.
 - Pin the source to the known-good MidG971 TrimUI board tree.
+- Build the tested debug TF-A BL31 variant for manual-boot parity.

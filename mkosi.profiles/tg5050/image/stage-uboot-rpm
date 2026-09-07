@@ -4,7 +4,7 @@ set -euo pipefail
 
 rpm_dir=$(realpath "${1:?usage: stage-uboot-rpm <rpm-dir> <output-dir>}")
 out=$(realpath -m "${2:?usage: stage-uboot-rpm <rpm-dir> <output-dir>}")
-mapfile -t rpms < <(find "$rpm_dir" -type f -name 'uboot-images-tg5050-*.aarch64.rpm' -print)
+mapfile -t rpms < <(find "$rpm_dir" -type f -name 'uboot-images-tg5050-*.rpm' -print)
 (( ${#rpms[@]} == 1 )) || {
     printf 'expected exactly one U-Boot RPM in %s, found %d\n' "$rpm_dir" "${#rpms[@]}" >&2
     exit 1

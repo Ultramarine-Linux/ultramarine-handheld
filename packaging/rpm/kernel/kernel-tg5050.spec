@@ -122,8 +122,9 @@ make allwinner/sun55i-a523-trimui-smart-pro-s.dtb
 rm -rf %{buildroot}
 mkdir -p %{buildroot}/boot %{buildroot}/usr/lib/modules/%{krel}
 install -m 0644 arch/arm64/boot/Image %{buildroot}/boot/vmlinuz-%{krel}
+mkdir -p %{buildroot}/usr/lib/modules/%{krel}/dtb
 install -m 0644 arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb \
-    %{buildroot}/usr/lib/modules/%{krel}/dtb-sun55i-a523-trimui-smart-pro-s.dtb
+    %{buildroot}/usr/lib/modules/%{krel}/dtb/sun55i-a523-trimui-smart-pro-s.dtb
 test "$(make -s kernelrelease)" = "%{krel}"
 make modules_install KERNELRELEASE="%{krel}" INSTALL_MOD_PATH=%{buildroot}/usr INSTALL_MOD_STRIP=
 rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{krel}/source
@@ -136,7 +137,7 @@ rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{
 /usr/lib/modules/%{krel}/modules.order
 /usr/lib/modules/%{krel}/modules.softdep
 /usr/lib/modules/%{krel}/modules.symbols*
-/usr/lib/modules/%{krel}/dtb-sun55i-a523-trimui-smart-pro-s.dtb
+/usr/lib/modules/%{krel}/dtb/sun55i-a523-trimui-smart-pro-s.dtb
 
 %files modules
 /usr/lib/modules/%{krel}/kernel
