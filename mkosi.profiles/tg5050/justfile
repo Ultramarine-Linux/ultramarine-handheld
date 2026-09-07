@@ -22,7 +22,7 @@ env:
 # partition is generated for the three-partition mainline layout.
 
 # Build the complete GPT image, including ESP, /boot, and rootfs, with mkosi/repart.
-mainline-disk: env
+mainline-disk: env mainline-uboot
     #!/usr/bin/env bash
     set -euo pipefail
     sudo mkosi --directory={{project}} --profile={{profile}},mainline --force
@@ -58,7 +58,7 @@ systemd-initrd:
 mainline-initramfs:
     {{profile_dir}}/board/mainline-initramfs/build
 
-mainline-image: mainline-disk mainline-uboot
+mainline-image: mainline-disk
     {{profile_dir}}/image/assemble-mainline-image
 
 
@@ -125,6 +125,33 @@ flash-esp target:
     sudo cmp "$source" "$target_esp"
     sudo fsck.fat -vn "$target_esp"
     echo "ESP p1 flash verified: $target_esp"
+
+# Replace only p2 (/boot), including the mainline kernel and BSP fallback.
+# Preserve the existing GPT, raw SPL/FIT, ESP, and rootfs.
+flash-boot target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    bootdev=$({{profile_dir}}/image/validate-target "$target")
+    image='{{build_dir}}/ultramarine-trimui-mainline.raw'
+    test -f "$image"
+    loop=$(sudo losetup --find --show --read-only --partscan "$image")
+    cleanup() { sudo losetup -d "$loop" 2>/dev/null || true; }
+    trap cleanup EXIT
+    source="${loop}p2"
+    target_boot="${bootdev}2"
+    source_size=$(sudo blockdev --getsize64 "$source")
+    target_size=$(sudo blockdev --getsize64 "$target_boot")
+    test "$source_size" = "$target_size" || {
+        echo "p2 size mismatch: source=$source_size target=$target_size" >&2
+        exit 1
+    }
+    sudo e2fsck -fn "$source"
+    sudo dd if="$source" of="$target_boot" bs=16M iflag=fullblock conv=fsync status=progress
+    sudo blockdev --flushbufs "$target"
+    sudo cmp "$source" "$target_boot"
+    sudo e2fsck -fn "$target_boot"
+    echo "boot p2 flash verified: $target_boot"
 
 # Rewrite only p3 from the generated image, preserving GPT and p1-p2.
 # Example: just flash-rootfs /dev/sdX

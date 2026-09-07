@@ -46,3 +46,5 @@ mkosi.profiles/tg5050/mkosi.extra/root/.ssh/
 
 # cache
 __pycache__
+anda-build/rpm/
+AGENTS.md
