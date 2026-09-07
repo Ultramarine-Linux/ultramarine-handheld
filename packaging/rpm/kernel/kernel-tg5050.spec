@@ -34,7 +34,6 @@ Patch1019: 0022-thermal-sun8i-add-sun55i-a523-ddr-ths.patch
 Patch1020: 0023-thermal-sun8i-a523-guard-npu-channel.patch
 Patch1021: 0024-mfd-axp20x-power-off-the-AXP717-via-SOFT_PWROFF.patch
 Patch1022: 0025-watchdog-sunxi_wdt-per-variant-restart-priority.patch
-Patch1023: 0026-ASoC-sun4i-codec-set-playback_only-for-H616.patch
 Patch1024: 0027-ASoC-sun4i-codec-sort-sound-includes.patch
 Patch1025: 0028-ASoC-sun4i-codec-separate-DAC-ADC-clocks.patch
 Patch1026: 0029-ASoC-sun4i-codec-A523-playback.patch
