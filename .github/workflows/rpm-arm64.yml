@@ -49,8 +49,14 @@ jobs:
         run: |
           command -v sccache
           sccache --version
+          compiler="$(command -v gcc || command -v cc)"
+          cxx_compiler="$(command -v g++ || command -v c++)"
+          printf 'C compiler: %s\nC++ compiler: %s\n' "$compiler" "$cxx_compiler"
+          "$compiler" --version
+          echo "SCCACHE_CC=$compiler" >> "$GITHUB_ENV"
+          echo "SCCACHE_CXX=$cxx_compiler" >> "$GITHUB_ENV"
           sccache --zero-stats
-          printf 'int main(void) { return 0; }\n' | sccache gcc -x c -c -o /tmp/sccache-probe.o -
+          printf 'int main(void) { return 0; }\n' | sccache "$compiler" -x c -c -o /tmp/sccache-probe.o -
           sccache --show-stats
 
       - name: Install RPM build tools
@@ -64,9 +70,9 @@ jobs:
       - name: Build kernel RPMs with Andaman
         run: |
           env \
-            CC="${CC}" \
-            HOSTCC="${HOSTCC}" \
-            HOSTCXX="${HOSTCXX}" \
+            CC="sccache ${SCCACHE_CC}" \
+            HOSTCC="sccache ${SCCACHE_CC}" \
+            HOSTCXX="sccache ${SCCACHE_CXX}" \
             SCCACHE_GHA_ENABLED="${SCCACHE_GHA_ENABLED}" \
             anda build -rrpmbuild packaging/rpm/kernel
 

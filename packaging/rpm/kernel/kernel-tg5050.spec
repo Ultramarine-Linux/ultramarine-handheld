@@ -127,9 +127,11 @@ export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
 export KBUILD_BUILD_TIMESTAMP="%{SOURCE_DATE_EPOCH}"
 if command -v sccache >/dev/null 2>&1; then
-    export CC="sccache gcc"
-    export HOSTCC="sccache gcc"
-    export HOSTCXX="sccache g++"
+    sccache_cc="$(command -v gcc || command -v cc)"
+    sccache_cxx="$(command -v g++ || command -v c++)"
+    export CC="sccache ${sccache_cc}"
+    export HOSTCC="sccache ${sccache_cc}"
+    export HOSTCXX="sccache ${sccache_cxx}"
 fi
 make defconfig
 ./scripts/kconfig/merge_config.sh -m .config trimui.config required.config
