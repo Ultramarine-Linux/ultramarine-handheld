@@ -19,17 +19,10 @@ env:
     sha256sum {{env_image}} {{env_file}}
 
 # The environment is now an optional file on the p1 ESP; no environment
-# partition is generated for the two-partition mainline layout.
+# partition is generated for the three-partition mainline layout.
 
-# Stage versioned kernel artifacts and BLS files for the mainline mkosi image.
-mainline-boot-tree: env mainline-modules mainline-kernel stage-kernel-rpm
-    sudo {{profile_dir}}/image/stage-systemd-boot {{build_dir}}/mainline-boot-tree {{build_dir}}/mainline-kernel-rpm-tree
-
-stage-kernel-rpm:
-    {{profile_dir}}/image/stage-kernel-rpm {{quote(build_dir / "anda-rpms")}} {{quote(build_dir / "mainline-kernel-rpm-tree")}}
-
-# Build the complete GPT image, including ESP and p4, with mkosi/repart.
-mainline-disk: mainline-boot-tree
+# Build the complete GPT image, including ESP, /boot, and rootfs, with mkosi/repart.
+mainline-disk: env mainline-modules mainline-kernel
     sudo mkosi --directory={{project}} --profile={{profile}},mainline --force
 
 rootfs: mainline-disk

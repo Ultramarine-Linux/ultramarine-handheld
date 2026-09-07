@@ -47,8 +47,8 @@ check_partition() {
     }
 }
 
-check_partition "${part}1" boot-resource 5de82070-7b8c-4337-bb93-cae98c396718 2048 1073741824 c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-check_partition "${part}2" boot 035bfc1b-bb58-420f-903d-5cd551e61562 2099200 100663296 ebd0a0a2-b9e5-4433-87c0-68b6b72699c7
+check_partition "${part}1" EFI-SYSTEM 2f8a6891-7e8a-49af-b3b9-e5249519cfe7 2048 1073741824 c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+check_partition "${part}2" boot-resource 5de82070-7b8c-4337-bb93-cae98c396718 2099200 100663296 ebd0a0a2-b9e5-4433-87c0-68b6b72699c7
 check_partition "${part}3" rootfs 693b9aba-2fc7-4222-9bd9-d2dc7b82099a 2295808 5153964032 b921b045-1df0-41c3-af44-4c6f280d3fae
 
 printf '%s\n' "$part"
