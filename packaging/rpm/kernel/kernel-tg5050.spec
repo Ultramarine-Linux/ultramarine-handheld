@@ -11,6 +11,8 @@ Source4:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1
 Source1000:      trimui.config
 Source1001:      required.config
 Source1002:      aic8800-warpme-v7.2.patch
+# Production USB gadget console fragment used by the TG5050 recovery path.
+Source1003:      usb-gadget-console.config
 
 Patch1001: 0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch
 Patch1002: 0002-phy-allwinner-add-sun55i-DSI-combo-D-PHY.patch
@@ -112,6 +114,7 @@ mkdir integration
 tar -xf %{SOURCE2} -C integration --strip-components=1
 cp integration/kernel/trimui.config trimui.config
 cp %{SOURCE1001} required.config
+cp %{SOURCE1003} usb-gadget-console.config
 install -D -m 0644 integration/kernel/drivers/phy-sun55i-dsi-combo.c drivers/phy/allwinner/phy-sun55i-dsi-combo.c
 install -D -m 0644 integration/kernel/drivers/pwm-sun20i.c drivers/pwm/pwm-sun20i.c
 install -D -m 0644 integration/kernel/drivers/panel-trimui-smart-pro-s.c drivers/gpu/drm/panel/panel-trimui-smart-pro-s.c
@@ -145,7 +148,7 @@ if command -v sccache >/dev/null 2>&1; then
     fi
 fi
 make defconfig
-./scripts/kconfig/merge_config.sh -m .config trimui.config required.config
+./scripts/kconfig/merge_config.sh -m .config trimui.config required.config usb-gadget-console.config
 scripts/config --set-str CONFIG_LOCALVERSION "-tg5050"
 make olddefconfig
 make %{?_smp_mflags} Image modules
