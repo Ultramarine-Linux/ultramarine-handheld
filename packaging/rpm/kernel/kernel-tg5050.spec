@@ -45,6 +45,7 @@ Patch1029: 0032-pinctrl-sunxi-A523-fix-voltage-withstand-encoding.patch
 Patch1030: 0033-mmc-pwrseq-simple-tolerate-missing-reset-controller.patch
 Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
+Patch1033: 0036-arm64-dts-tg5050-force-usb-gadget-peripheral.patch
 
 
 %global buildid .tg5050
@@ -109,7 +110,8 @@ TG5050 kernel ABI. This package contains aic8800_bsp, aic8800_fdrv, and
 aic8800_btlpm; it does not compile anything on the target device.
 
 %prep
-%autosetup -n linux-7.2 -p1
+%autosetup -n linux-7.2 -p1 -N
+%autopatch -p1 -m 1001 -M 1032
 mkdir integration
 tar -xf %{SOURCE2} -C integration --strip-components=1
 cp integration/kernel/trimui.config trimui.config
@@ -122,6 +124,7 @@ for dts in sun55i-a523-trimui-smart-pro-s.dts sun55i-a523.dtsi trimui-de-reconci
     install -D -m 0644 "integration/dts/$dts" "arch/arm64/boot/dts/allwinner/$dts"
 done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
+%patch 1033 -p1
 
 %build
 export ARCH=arm64
