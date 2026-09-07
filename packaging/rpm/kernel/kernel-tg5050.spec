@@ -185,7 +185,7 @@ while IFS= read -r -d '' module; do
     install -D -m 0644 "$module" \
         "%{buildroot}/usr/lib/modules/%{krel}/extra/aic8800/$(basename "$module")"
 done < <(find aic8800-build/src/drivers/net/wireless/aic8800_sdio -type f -name '*.ko' -print0)
-depmod -b %{buildroot} %{krel}
+depmod -b %{buildroot} -m /usr/lib/modules %{krel}
 rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{krel}/source
 
 %files
@@ -210,12 +210,12 @@ rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{
 
 %post -n kmod-aic8800
 if [ -x %{_sbindir}/depmod ]; then
-    %{_sbindir}/depmod -a %{krel} || :
+    %{_sbindir}/depmod -a -m /usr/lib/modules %{krel} || :
 fi
 
 %postun -n kmod-aic8800
 if [ -x %{_sbindir}/depmod ]; then
-    %{_sbindir}/depmod -a %{krel} || :
+    %{_sbindir}/depmod -a -m /usr/lib/modules %{krel} || :
 fi
 
 %changelog
