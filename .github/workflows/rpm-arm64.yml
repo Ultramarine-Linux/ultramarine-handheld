@@ -45,6 +45,14 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.10
 
+      - name: Install RPM build tools
+        run: |
+          dnf install --assumeyes dnf-plugins-core git python3
+
+      - name: Install kernel build dependencies
+        run: |
+          dnf builddep --assumeyes packaging/rpm/kernel/kernel-tg5050.spec
+
       - name: Verify sccache compiler wrapper
         run: |
           command -v sccache
@@ -58,14 +66,6 @@ jobs:
           sccache --zero-stats
           printf 'int main(void) { return 0; }\n' | sccache "$compiler" -x c -c -o /tmp/sccache-probe.o -
           sccache --show-stats
-
-      - name: Install RPM build tools
-        run: |
-          dnf install --assumeyes dnf-plugins-core git python3
-
-      - name: Install kernel build dependencies
-        run: |
-          dnf builddep --assumeyes packaging/rpm/kernel/kernel-tg5050.spec
 
       - name: Build kernel RPMs with Andaman
         run: |
