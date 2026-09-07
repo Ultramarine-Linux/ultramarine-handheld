@@ -5,22 +5,13 @@ Summary:        Fedora-style mainline U-Boot images for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/MidG971/u-boot
 
-# origin/main of the pinned MidG971 fork, before the nine TG5050 commits.
-Source0:        https://github.com/u-boot/u-boot/archive/e354b34a6ab4b1887fd451bea8ceb7be146070a8.tar.gz
+# Exact known-good manual-build tree from the pinned MidG971 fork.
+Source0:        https://github.com/MidG971/u-boot/archive/a8bb626aea0b0b96e5945ce905e29e85186fc886.tar.gz
 Source1:        https://github.com/jernejsk/arm-trusted-firmware/archive/e019f64d91ff7c2dfbbfe7f76a14f240761b9edc.tar.gz
 Source1000:     trimui-tg5050_defconfig
 
 %global debug_package %{nil}
 
-Patch1001:      0001-configs-add-Trimui-Smart-Pro-S-sun55i-a523-TG5050.patch
-Patch1002:      0002-mmc-sunxi-use-PERIPH0-600M-mux-source-for-A523-micro.patch
-Patch1003:      0003-sunxi-deterministic-raw-U-Boot-sector-for-A523-128-K.patch
-Patch1004:      0004-HACK-avaota-a1-disable-eMMC-for-Trimui-SD-only-bring.patch
-Patch1005:      0005-power-axp-add-AXP2202-AXP1530-Trimui-Smart-Pro-S-A52.patch
-Patch1006:      0006-sunxi-Trimui-Smart-Pro-S-U-Boot-control-DTB-real-PMI.patch
-Patch1007:      0007-power-axp-fix-AXP717-B-C-dcdc4-max-voltage-3700-3400.patch
-Patch1008:      0008-sunxi-A523-read-the-U-Boot-FIT-from-the-configured-r.patch
-Patch1009:      0009-configs-trimui-smart-pro-s-correct-A523-DRAM-params-.patch
 
 BuildRequires:  bc
 BuildRequires:  bison
@@ -43,11 +34,12 @@ BuildRequires:  swig
 
 %description
 The matched mainline U-Boot SPL and FIT images for the TrimUI Smart Pro S
-TG5050 boot path. The RPM applies the nine board commits through RPM Patch
-preambles and installs artifacts for the board-defined raw boot slots.
+TG5050 boot path. The RPM builds the exact pinned MidG971 board tree used by
+the known-good manual build and installs artifacts for the board-defined raw
+boot slots.
 
 %prep
-%autosetup -n u-boot-e354b34a6ab4b1887fd451bea8ceb7be146070a8 -p1
+%autosetup -n u-boot-a8bb626aea0b0b96e5945ce905e29e85186fc886
 mkdir -p ../tfa-a523
 %{__tar} -xf %{SOURCE1} -C ../tfa-a523 --strip-components=1
 cp %{SOURCE1000} configs/trimui-tg5050_defconfig
@@ -76,4 +68,4 @@ install -m 0644 u-boot-sunxi-with-spl.fit.itb \
 %changelog
 * Sun Sep 06 2026 Cappy Ishihara <cappy@fyralabs.com> - 2026.07-1.tg5050
 - Build and package the matched TG5050 U-Boot SPL and FIT from source.
-- Apply board changes through RPM Patch entries.
+- Pin the source to the known-good MidG971 TrimUI board tree.
