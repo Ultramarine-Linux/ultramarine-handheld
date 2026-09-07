@@ -35,8 +35,10 @@ boot-artifacts/            extracted vendor kernel and DTB research artifacts
 
 Requirements include `mkosi`, `systemd-repart`, `sfdisk`, `mkenvimage`, an
 AArch64 cross compiler, `e2fsprogs`, and standard loop-device support. Clone
-submodules first. Linux is pinned as a submodule at the exact v7.2-rc3 commit
-(`a13c140cc289`), alongside the matching TG5050 integration submodule. The
+submodules first. The legacy Linux integration submodule remains pinned at the
+exact v7.2-rc3 commit (`a13c140cc289`) for provenance, while the active RPM
+build consumes the stable 7.2.0 archive from kernel.org. The matching TG5050
+integration submodule remains pinned separately. The
 build creates and recreates a disposable kernel worktree under `build/`; it
 does not modify the pinned Linux checkout.
 

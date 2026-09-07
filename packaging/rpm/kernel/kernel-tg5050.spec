@@ -4,7 +4,7 @@ Release:        1.tg5050%{?dist}
 Summary:        Fedora-style alternate mainline kernel for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/torvalds/linux
-Source0:        https://github.com/torvalds/linux/archive/refs/tags/v7.2-rc3.tar.gz
+Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.tar.xz
 Source2:        https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
 Source3:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2.patch
 Source4:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2-fix-kernel7.1.patch
@@ -47,7 +47,7 @@ Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 
 
 %global buildid .tg5050
-%global krel 7.2.0-rc3-tg5050
+%global krel 7.2.0-tg5050
 %global debug_package %{nil}
 %global kernel_package_name kernel
 %global kernel_build_dir %{_builddir}/kernel-build
@@ -81,8 +81,8 @@ Fedora-compatible kernel paths and release metadata.
 Summary:        Core files for the TG5050 alternate kernel
 Requires:       %{name} = %{version}-%{release}
 Provides:       kernel-core = %{version}-%{release}
-Provides:       kernel-uname-r = 7.2.0-rc3.tg5050
-Provides:       kernel-core-uname-r = 7.2.0-rc3.tg5050
+Provides:       kernel-uname-r = 7.2.0.tg5050
+Provides:       kernel-core-uname-r = 7.2.0.tg5050
 
 %description core
 The bootable Image, board device tree, and built-in kernel metadata for the
@@ -92,7 +92,7 @@ TG5050 alternate kernel.
 Summary:        Loadable modules for the TG5050 alternate kernel
 Requires:       %{name}-core = %{version}-%{release}
 Provides:       kernel-modules = %{version}-%{release}
-Provides:       kernel-modules-uname-r = 7.2.0-rc3.tg5050
+Provides:       kernel-modules-uname-r = 7.2.0.tg5050
 
 %description modules
 Loadable kernel modules for the TG5050 alternate kernel.
@@ -108,7 +108,7 @@ TG5050 kernel ABI. This package contains aic8800_bsp, aic8800_fdrv, and
 aic8800_btlpm; it does not compile anything on the target device.
 
 %prep
-%autosetup -n linux-7.2-rc3 -p1
+%autosetup -n linux-7.2 -p1
 mkdir integration
 tar -xf %{SOURCE2} -C integration --strip-components=1
 cp integration/kernel/trimui.config trimui.config

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 image=${1:?usage: stage-mainline-dtb IMAGE}
-root_kver=7.2.0-rc3-tg5050
+root_kver=7.2.0-tg5050
 dtb_name=sun55i-a523-trimui-smart-pro-s.dtb
 loop=$(sudo losetup --find --show --partscan "$image")
 esp=$(mktemp -d)
