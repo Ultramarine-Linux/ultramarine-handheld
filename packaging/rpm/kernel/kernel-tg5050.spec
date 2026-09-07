@@ -127,11 +127,23 @@ export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
 export KBUILD_BUILD_TIMESTAMP="%{SOURCE_DATE_EPOCH}"
 if command -v sccache >/dev/null 2>&1; then
-    sccache_cc="$(command -v gcc || command -v cc)"
-    sccache_cxx="$(command -v g++ || command -v c++)"
+    echo "sccache: $(command -v sccache)"
+    sccache --version
+    sccache_cc="$(command -v gcc 2>/dev/null || command -v cc 2>/dev/null || true)"
+    sccache_cxx="$(command -v g++ 2>/dev/null || command -v c++ 2>/dev/null || true)"
+    test -n "$sccache_cc" || {
+        echo "ERROR: sccache is available but no C compiler is visible in the RPM build environment" >&2
+        exit 1
+    }
+    echo "sccache C compiler: $sccache_cc"
+    echo "sccache C++ compiler: ${sccache_cxx:-none}"
     export CC="sccache ${sccache_cc}"
     export HOSTCC="sccache ${sccache_cc}"
-    export HOSTCXX="sccache ${sccache_cxx}"
+    if test -n "$sccache_cxx"; then
+        export HOSTCXX="sccache ${sccache_cxx}"
+    else
+        unset HOSTCXX
+    fi
 fi
 make defconfig
 ./scripts/kconfig/merge_config.sh -m .config trimui.config required.config

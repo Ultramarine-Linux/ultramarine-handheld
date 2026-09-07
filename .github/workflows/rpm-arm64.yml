@@ -53,27 +53,10 @@ jobs:
         run: |
           dnf builddep --assumeyes packaging/rpm/kernel/kernel-tg5050.spec
 
-      - name: Verify sccache compiler wrapper
-        run: |
-          command -v sccache
-          sccache --version
-          compiler="$(command -v gcc || command -v cc)"
-          cxx_compiler="$(command -v g++ || command -v c++)"
-          printf 'C compiler: %s\nC++ compiler: %s\n' "$compiler" "$cxx_compiler"
-          "$compiler" --version
-          echo "SCCACHE_CC=$compiler" >> "$GITHUB_ENV"
-          echo "SCCACHE_CXX=$cxx_compiler" >> "$GITHUB_ENV"
-          sccache --zero-stats
-          printf 'int main(void) { return 0; }\n' | sccache "$compiler" -x c -c -o /tmp/sccache-probe.o -
-          sccache --show-stats
-
       - name: Build kernel RPMs with Andaman
         run: |
-          env \
-            CC="sccache ${SCCACHE_CC}" \
-            HOSTCC="sccache ${SCCACHE_CC}" \
-            HOSTCXX="sccache ${SCCACHE_CXX}" \
-            SCCACHE_GHA_ENABLED="${SCCACHE_GHA_ENABLED}" \
+          sccache --zero-stats
+          env SCCACHE_GHA_ENABLED="${SCCACHE_GHA_ENABLED}" \
             anda build -rrpmbuild packaging/rpm/kernel
 
       - name: Show kernel sccache statistics
