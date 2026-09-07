@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image=${1:?usage: prune-kernel-modules-initrd IMAGE}
+loop=$(sudo losetup --find --show --partscan "$image")
+esp=$(mktemp -d)
+cleanup() {
+    sudo umount "$esp" 2>/dev/null || true
+    sudo losetup -d "$loop" 2>/dev/null || true
+    rmdir "$esp" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+sudo mount "${loop}p1" "$esp"
+shopt -s nullglob
+entries=("$esp"/loader/entries/*.conf)
+if ((${#entries[@]} == 0)); then
+    echo "no BLS entries found on ESP" >&2
+    exit 1
+fi
+
+for entry in "${entries[@]}"; do
+    sudo sed -i '/kernel-modules\.initrd/d' "$entry"
+done
+sudo find "$esp" -type f -name kernel-modules.initrd -delete
+sync
+
+if sudo find "$esp" -type f -name kernel-modules.initrd -print -quit | grep -q .; then
+    echo "kernel-modules.initrd remains on ESP" >&2
+    exit 1
+fi
+if sudo grep -R -l 'kernel-modules\.initrd' "$esp/loader/entries" >/dev/null 2>&1; then
+    echo "BLS still references kernel-modules.initrd" >&2
+    exit 1
+fi
+printf 'removed kernel-modules.initrd from %s\n' "$image"
