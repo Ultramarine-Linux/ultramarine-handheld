@@ -46,8 +46,6 @@ Patch1030: 0033-mmc-pwrseq-simple-tolerate-missing-reset-controller.patch
 Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 Patch1033: 0036-arm64-dts-tg5050-force-usb-gadget-peripheral.patch
-
-
 %global buildid .tg5050
 %global krel 7.2.0-tg5050
 %global debug_package %{nil}
@@ -70,6 +68,7 @@ BuildRequires:  gcc
 BuildRequires:  kmod
 BuildRequires:  make
 BuildRequires:  openssl-devel
+BuildRequires:  sccache
 BuildRequires:  tar
 BuildRequires:  elfutils-libelf-devel
 
@@ -125,37 +124,38 @@ for dts in sun55i-a523-trimui-smart-pro-s.dts sun55i-a523.dtsi trimui-de-reconci
 done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
 %patch 1033 -p1
-
 %build
 export ARCH=arm64
 export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
 export KBUILD_BUILD_TIMESTAMP="%{SOURCE_DATE_EPOCH}"
-if command -v sccache >/dev/null 2>&1; then
-    echo "sccache: $(command -v sccache)"
-    sccache --version
-    sccache_cc="$(command -v gcc 2>/dev/null || command -v cc 2>/dev/null || true)"
+CC="${CROSS_COMPILE:-}gcc"
+HOSTCC=gcc
+HOSTCXX=g++
+if test -x /usr/bin/sccache; then
+    sccache_bin=/usr/bin/sccache
+    sccache_cc="$(command -v "${CROSS_COMPILE:-}gcc" 2>/dev/null || true)"
+    sccache_hostcc="$(command -v gcc 2>/dev/null || command -v cc 2>/dev/null || true)"
     sccache_cxx="$(command -v g++ 2>/dev/null || command -v c++ 2>/dev/null || true)"
-    test -n "$sccache_cc" || {
-        echo "ERROR: sccache is available but no C compiler is visible in the RPM build environment" >&2
+    test -n "$sccache_cc" -a -n "$sccache_hostcc" || {
+        echo "ERROR: sccache build requires target and host C compilers" >&2
         exit 1
     }
-    echo "sccache C compiler: $sccache_cc"
-    echo "sccache C++ compiler: ${sccache_cxx:-none}"
-    export CC="sccache ${sccache_cc}"
-    export HOSTCC="sccache ${sccache_cc}"
-    if test -n "$sccache_cxx"; then
-        export HOSTCXX="sccache ${sccache_cxx}"
-    else
-        unset HOSTCXX
-    fi
+    echo "sccache: $sccache_bin"
+    "$sccache_bin" --version
+    echo "sccache target compiler: $sccache_cc"
+    echo "sccache host compiler: $sccache_hostcc"
+    CC="$sccache_bin $sccache_cc"
+    HOSTCC="$sccache_bin $sccache_hostcc"
+    test -n "$sccache_cxx" && HOSTCXX="$sccache_bin $sccache_cxx"
 fi
+export CC HOSTCC HOSTCXX
 make defconfig
 ./scripts/kconfig/merge_config.sh -m .config trimui.config required.config usb-gadget-console.config
 scripts/config --set-str CONFIG_LOCALVERSION "-tg5050"
 make olddefconfig
-make %{?_smp_mflags} Image modules
-make allwinner/sun55i-a523-trimui-smart-pro-s.dtb
+make %{?_smp_mflags} CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" Image modules
+make CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" allwinner/sun55i-a523-trimui-smart-pro-s.dtb
 
 # Build the pinned AIC8800 SDIO Wi-Fi/Bluetooth backport out of tree against
 # this exact kernel configuration and release. The two upstream patches are
@@ -169,7 +169,7 @@ patch -p1 -f --no-backup-if-mismatch < %{SOURCE4} >/dev/null 2>&1 || true
 test -f drivers/net/wireless/aic8800_sdio/aic8800_fdrv/rwnx_main.c
 patch -p1 < %{SOURCE1002}
 env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
-    make -C ../.. %{?_smp_mflags} ARCH=arm64 \
+    make -C ../.. %{?_smp_mflags} ARCH=arm64 CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" \
     M="$PWD/drivers/net/wireless/aic8800_sdio" \
     CONFIG_AIC_SDIO_WLAN_SUPPORT=y \
     CONFIG_AIC8800_WLAN_SUPPORT=m \

@@ -26,6 +26,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  openssl-devel
 BuildRequires:  openssl-devel-engine
+BuildRequires:  sccache
 BuildRequires:  perl-interpreter
 BuildRequires:  python3
 BuildRequires:  python3-devel
@@ -48,14 +49,32 @@ cp %{SOURCE1000} configs/trimui-tg5050_defconfig
 
 %build
 export ARCH=arm64
-unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS CC CXX HOSTCC HOSTCXX
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 export CROSS_COMPILE=aarch64-linux-gnu-
+CC="${CROSS_COMPILE}gcc"
+HOSTCC=gcc
+HOSTCXX=g++
+if test -x /usr/bin/sccache; then
+    sccache_bin=/usr/bin/sccache
+    sccache_cc="$(command -v "${CROSS_COMPILE}gcc")"
+    sccache_hostcc="$(command -v gcc)"
+    sccache_cxx="$(command -v g++)"
+    echo "sccache: $sccache_bin"
+    "$sccache_bin" --version
+    echo "sccache target compiler: $sccache_cc"
+    echo "sccache host compiler: $sccache_hostcc"
+    CC="$sccache_bin $sccache_cc"
+    HOSTCC="$sccache_bin $sccache_hostcc"
+    HOSTCXX="$sccache_bin $sccache_cxx"
+fi
+export CC HOSTCC HOSTCXX
 env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
-    make -C ../tfa-a523 PLAT=sun55i_a523 DEBUG=1 \
+    make -C ../tfa-a523 CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" PLAT=sun55i_a523 DEBUG=1 \
     ENABLE_STACK_PROTECTOR=none bl31
-make trimui-tg5050_defconfig
-make olddefconfig
-make %{?_smp_mflags} BL31=../tfa-a523/build/sun55i_a523/debug/bl31.bin
+make CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" trimui-tg5050_defconfig
+make CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" olddefconfig
+make %{?_smp_mflags} CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" \
+    BL31=../tfa-a523/build/sun55i_a523/debug/bl31.bin
 
 %install
 rm -rf %{buildroot}
