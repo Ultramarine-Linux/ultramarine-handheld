@@ -66,6 +66,8 @@ BuildRequires:  bison
 BuildRequires:  curl
 BuildRequires:  flex
 BuildRequires:  gcc
+BuildRequires:  gcc-aarch64-linux-gnu
+BuildRequires:  gcc-c++
 BuildRequires:  kmod
 BuildRequires:  make
 BuildRequires:  openssl-devel
@@ -126,43 +128,23 @@ done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
 %patch 1033 -p1
 %patch 1034 -p1
+%global make %{__make} %{_make_output_sync} %{?_smp_mflags} %{_make_verbose} CC="$CC" CXX="$CXX" HOSTCC="${HOSTCC:-gcc}" HOSTCXX="${HOSTCXX:-g++}" CROSS_COMPILE="${CROSS_COMPILE-}"
 %build
 export ARCH=arm64
 export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
-export KBUILD_BUILD_TIMESTAMP="%{SOURCE_DATE_EPOCH}"
-CC="${CROSS_COMPILE:-}gcc"
-HOSTCC=gcc
-HOSTCXX=g++
-if test -x /usr/bin/sccache; then
-    sccache_bin=/usr/bin/sccache
-    sccache_cc="$(command -v "${CROSS_COMPILE:-}gcc" 2>/dev/null || true)"
-    sccache_hostcc="$(command -v gcc 2>/dev/null || command -v cc 2>/dev/null || true)"
-    sccache_cxx="$(command -v g++ 2>/dev/null || command -v c++ 2>/dev/null || true)"
-    test -n "$sccache_cc" -a -n "$sccache_hostcc" || {
-        echo "ERROR: sccache build requires target and host C compilers" >&2
-        exit 1
-    }
-    echo "sccache: $sccache_bin"
-    "$sccache_bin" --version
-    echo "sccache target compiler: $sccache_cc"
-    echo "sccache host compiler: $sccache_hostcc"
-    CC="$sccache_bin $sccache_cc"
-    HOSTCC="$sccache_bin $sccache_hostcc"
-    test -n "$sccache_cxx" && HOSTCXX="$sccache_bin $sccache_cxx"
-fi
-export CC HOSTCC HOSTCXX
-make defconfig
+export KBUILD_BUILD_TIMESTAMP="${SOURCE_DATE_EPOCH}"
+%{make} defconfig
 ./scripts/kconfig/merge_config.sh -m .config trimui.config required.config usb-gadget-console.config
 scripts/config --set-str CONFIG_LOCALVERSION "-tg5050"
-make olddefconfig
-make %{?_smp_mflags} CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" Image modules
-make CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" allwinner/sun55i-a523-trimui-smart-pro-s.dtb
+%{make} olddefconfig
+%{make} Image modules
+%{make} allwinner/sun55i-a523-trimui-smart-pro-s.dtb
 
 # Build the pinned AIC8800 SDIO Wi-Fi/Bluetooth backport out of tree against
 # this exact kernel configuration and release. The two upstream patches are
 # pinned Sources; the local patch carries the v7.2 API delta.
-make modules_prepare
+%{make} modules_prepare
 rm -rf aic8800-build
 mkdir -p aic8800-build/src
 cd aic8800-build/src
@@ -171,7 +153,7 @@ patch -p1 -f --no-backup-if-mismatch < %{SOURCE4} >/dev/null 2>&1 || true
 test -f drivers/net/wireless/aic8800_sdio/aic8800_fdrv/rwnx_main.c
 patch -p1 < %{SOURCE1002}
 env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
-    make -C ../.. %{?_smp_mflags} ARCH=arm64 CC="$CC" HOSTCC="$HOSTCC" HOSTCXX="$HOSTCXX" \
+    %{make} -C ../.. ARCH=arm64 \
     M="$PWD/drivers/net/wireless/aic8800_sdio" \
     CONFIG_AIC_SDIO_WLAN_SUPPORT=y \
     CONFIG_AIC8800_WLAN_SUPPORT=m \

@@ -48,3 +48,5 @@ mkosi.profiles/tg5050/mkosi.extra/root/.ssh/
 __pycache__
 anda-build/rpm/
 AGENTS.md
+packaging/rpm/kernel/3401*.patch
+*.tar.*
