@@ -1,6 +1,6 @@
 Name:           kernel-tg5050
 Version:        7.2.0
-Release:        1.tg5050%{?dist}
+Release:        2.tg5050%{?dist}
 Summary:        Fedora-style alternate mainline kernel for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/torvalds/linux
@@ -46,6 +46,7 @@ Patch1030: 0033-mmc-pwrseq-simple-tolerate-missing-reset-controller.patch
 Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 Patch1033: 0036-arm64-dts-tg5050-force-usb-gadget-peripheral.patch
+Patch1034: 0037-arm64-dts-tg5050-disable-unused-etnaviv-npu-binding.patch
 %global buildid .tg5050
 %global krel 7.2.0-tg5050
 %global debug_package %{nil}
@@ -124,6 +125,7 @@ for dts in sun55i-a523-trimui-smart-pro-s.dts sun55i-a523.dtsi trimui-de-reconci
 done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
 %patch 1033 -p1
+%patch 1034 -p1
 %build
 export ARCH=arm64
 export KBUILD_BUILD_USER=ultramarine
@@ -224,6 +226,10 @@ if [ -x %{_sbindir}/depmod ]; then
 fi
 
 %changelog
+* Wed Sep 09 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-2.tg5050
+- Disable the unused generic Vivante NPU binding; Etnaviv NULL-dereferences
+  when DRM clients probe the resulting second card.
+
 * Mon Sep 07 2026 Cappy Ishihara <cappy@fyralabs.com> - 7.2.0-1.tg5050
 - Build and package the pinned AIC8800 SDIO Wi-Fi/Bluetooth modules.
 

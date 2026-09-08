@@ -1,0 +1,29 @@
+From 9b2f9d6c9c6a4e0a8f1c2d3e4b5a697887766554 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] arm64: dts: tg5050: disable unused Vivante NPU binding
+
+The A523 NPU is described with the generic vivante,gc compatible, which
+causes the Etnaviv DRM driver to bind to it and expose a second DRM card.
+The current Etnaviv path then NULL-dereferences when a DRM client opens
+that card. The TG5050 uses Panfrost for its Mali GPU and has no Etnaviv
+consumer, so leave the NPU node disabled until a correct NPU driver exists.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index 0000000..0000000 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -1108,5 +1108,6 @@
+ 			clock-names = "bus", "core", "reg";
+ 			resets = <&mcu_ccu RST_BUS_MCU_NPU>;
+ 			power-domains = <&ppu PD_NPU>;
++			status = "disabled";
+ 		};
+ 	};
+-- 
+2.51.0
