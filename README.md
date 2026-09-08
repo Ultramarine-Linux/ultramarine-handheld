@@ -12,8 +12,8 @@ a mkosi-built systemd initrd, and an ARM64 Fedora/Ultramarine root filesystem.
   mkosi-built systemd initrd.
 - The initrd discovers, checks, and mounts p4 before switching to the real
   systemd installation.
-- p1 is the 1 GiB boot-resource filesystem, p2 is the 16 MiB environment,
-  p3 is the retained 96 MiB vendor boot container, and p4 is the direct root.
+- p1 is the 1 GiB `/efi` ESP, p2 is the 1 GiB `/boot` filesystem, and p3
+  is the direct root.
 
 The vendor boot inputs remain available for reference/recovery, but the
 mainline path does not boot the vendor boot package or Android ramdisk.
@@ -89,9 +89,9 @@ just --justfile mkosi.profiles/tg5050/justfile flash-rootfs /dev/sdX
 The first recipe preserves GPT and p2-p4. The second rewrites only p4 and
 performs a complete source/target comparison after writing.
 
-The compact image occupies the first 6 GiB of a larger card. Its final p4
-partition is the direct Ultramarine system root; there is no p5 bootstrap or
-secondary root partition.
+The compact image occupies roughly the first 6.8 GiB of a larger card. Its
+final p3 partition is the direct Ultramarine system root; there is no p4/p5
+bootstrap or secondary root partition.
 
 The default extlinux entry uses the mkosi-built systemd initrd. A second entry
 keeps the static BusyBox initramfs as a pre-switch-root rescue environment.
