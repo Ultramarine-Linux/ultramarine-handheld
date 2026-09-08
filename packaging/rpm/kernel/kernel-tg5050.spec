@@ -45,7 +45,7 @@ Patch1029: 0032-pinctrl-sunxi-A523-fix-voltage-withstand-encoding.patch
 Patch1030: 0033-mmc-pwrseq-simple-tolerate-missing-reset-controller.patch
 Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
-Patch1033: 0036-arm64-dts-tg5050-force-usb-gadget-peripheral.patch
+Patch1033: 0036-arm64-dts-tg5050-usb-pd-power-and-pins.patch
 Patch1034: 0037-arm64-dts-tg5050-disable-unused-etnaviv-npu-binding.patch
 %global buildid .tg5050
 %global krel 7.2.0-tg5050

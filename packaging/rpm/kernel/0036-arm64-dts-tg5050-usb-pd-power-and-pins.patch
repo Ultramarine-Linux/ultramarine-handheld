@@ -1,0 +1,67 @@
+From 7f1a8a1b8e8f4c7d9e2b4a6c1d0f3e5a7b9c2d4e Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] arm64: dts: tg5050: match USB-C PD power and I2C5 setup
+
+The HUSB311 Type-C controller is on I2C5 at 0x4e. Match the vendor board
+configuration for the I2C5 electrical setup and power rails, including the
+GPIO-controlled USB0 VBUS source used by the vendor TCPC configuration.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dts | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dts b/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dts
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dts
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dts
+@@ -95,6 +95,16 @@
+ 		regulator-boot-on;
+ 	};
+ 
++	/* USB-C VBUS source rail = PD8, controlled by the HUSB311 TCPM. */
++	usb0_vbus: usb0-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb0-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&pio 3 8 GPIO_ACTIVE_HIGH>;	/* PD8 */
++		enable-active-high;
++	};
++
+ 	/* Speaker power-amp enable = PH6 (active high). The codec card has no
+ 	 * pa-gpios, so drive it always-on here to route Line Out -> the speaker. */
+ 	reg_spk_amp: regulator-spk-amp {
+@@ -340,6 +350,8 @@
+ 			};
+ 
+ 			reg_cldo3: cldo3 {
++				regulator-boot-on;
++				regulator-always-on;
+ 				regulator-min-microvolt = <3300000>;
+ 				regulator-max-microvolt = <3300000>;
+ 				regulator-name = "vcc-3v3-io-mmc";	/* VERIFY (mmc vmmc) */
+@@ -559,9 +571,12 @@
+ &i2c5 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c5_pb_pins>;
++	clock-frequency = <400000>;
++	twi-supply = <&reg_cldo3>;
+ 	status = "okay";
+ 
+ 	usb_pd: usb-pd@4e {
++		vbus-supply = <&usb0_vbus>;
+ 		compatible = "hynetek,husb311", "richtek,rt1711h";
+ 		reg = <0x4e>;
+ 		interrupt-parent = <&r_pio>;
+@@ -604,6 +619,8 @@
+ 		pins = "PB11", "PB12";	/* TWI5-SCK / TWI5-SDA */
+ 		allwinner,pinmux = <2>;
+ 		function = "i2c5";
++		drive-strength = <10>;
++		bias-pull-up;
+ 	};
+ 
+ 	/* Gamepad MCU serial links, RX-only single-wire (one pin each). */
+-- 
+2.51.0

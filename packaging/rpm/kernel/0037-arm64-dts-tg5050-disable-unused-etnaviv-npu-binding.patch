@@ -17,7 +17,7 @@ Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
 diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
 --- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
 +++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
-@@ -1111,0 +1111,1 @@
+@@ -1110,0 +1111 @@
 +			status = "disabled";
 -- 
 2.51.0
