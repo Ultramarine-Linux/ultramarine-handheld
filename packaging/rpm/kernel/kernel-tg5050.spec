@@ -183,6 +183,7 @@ cd ../..
 rm -rf %{buildroot}
 mkdir -p %{buildroot}/boot %{buildroot}/usr/lib/modules/%{krel}
 install -m 0644 arch/arm64/boot/Image %{buildroot}/boot/vmlinuz-%{krel}
+install -m 0644 .config %{buildroot}/usr/lib/modules/%{krel}/config
 mkdir -p %{buildroot}/usr/lib/modules/%{krel}/dtb
 install -m 0644 arch/arm64/boot/dts/allwinner/sun55i-a523-trimui-smart-pro-s.dtb \
     %{buildroot}/usr/lib/modules/%{krel}/dtb/sun55i-a523-trimui-smart-pro-s.dtb
@@ -199,6 +200,7 @@ rm -f %{buildroot}/usr/lib/modules/%{krel}/build %{buildroot}/usr/lib/modules/%{
 
 %files core
 /boot/vmlinuz-%{krel}
+/usr/lib/modules/%{krel}/config
 /usr/lib/modules/%{krel}/modules.builtin*
 /usr/lib/modules/%{krel}/modules.order
 /usr/lib/modules/%{krel}/modules.softdep

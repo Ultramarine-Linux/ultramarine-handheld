@@ -3,34 +3,38 @@ set -euo pipefail
 
 image=${1:?usage: prune-kernel-modules-initrd IMAGE}
 loop=$(sudo losetup --find --show --partscan "$image")
-esp=$(mktemp -d)
+boot=$(mktemp -d)
 cleanup() {
-    sudo umount "$esp" 2>/dev/null || true
+    sudo umount "$boot" 2>/dev/null || true
     sudo losetup -d "$loop" 2>/dev/null || true
-    rmdir "$esp" 2>/dev/null || true
+    rmdir "$boot" 2>/dev/null || true
 }
 trap cleanup EXIT
 
-sudo mount "${loop}p1" "$esp"
+sudo mount "${loop}p2" "$boot"
 shopt -s nullglob
-entries=("$esp"/loader/entries/*.conf)
+mapfile -t entries < <(sudo find "$boot/loader/entries" -maxdepth 1 -type f -name '*.conf' -print)
 if ((${#entries[@]} == 0)); then
-    echo "no BLS entries found on ESP" >&2
+    echo "no BLS entries found on XBOOTLDR" >&2
     exit 1
 fi
 
 for entry in "${entries[@]}"; do
     sudo sed -i '/kernel-modules\.initrd/d' "$entry"
 done
-sudo find "$esp" -type f -name kernel-modules.initrd -delete
+# The kernel RPMs install their source images at /boot/vmlinuz-* so mkosi can
+# discover them. Type-1 BLS entries use the versioned tree below /boot instead;
+# do not leave a second flat copy in the XBOOTLDR filesystem.
+sudo find "$boot" -maxdepth 1 -type f -name 'vmlinuz-*' -delete
+sudo find "$boot" -type f -name kernel-modules.initrd -delete
 sync
 
-if sudo find "$esp" -type f -name kernel-modules.initrd -print -quit | grep -q .; then
-    echo "kernel-modules.initrd remains on ESP" >&2
+if sudo find "$boot" -type f -name kernel-modules.initrd -print -quit | grep -q .; then
+    echo "kernel-modules.initrd remains on XBOOTLDR" >&2
     exit 1
 fi
-if sudo grep -R -l 'kernel-modules\.initrd' "$esp/loader/entries" >/dev/null 2>&1; then
+if sudo grep -R -l 'kernel-modules\.initrd' "$boot/loader/entries" >/dev/null 2>&1; then
     echo "BLS still references kernel-modules.initrd" >&2
     exit 1
 fi
-printf 'removed kernel-modules.initrd from %s\n' "$image"
+printf 'removed kernel-modules.initrd from XBOOTLDR in %s\n' "$image"

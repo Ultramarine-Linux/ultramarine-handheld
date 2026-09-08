@@ -1,0 +1,1 @@
+console=ttyS0,115200 earlycon=uart8250,mmio32,0x02500000 root=PARTUUID=693b9aba-2fc7-4222-9bd9-d2dc7b82099a rootwait rw loglevel=7 panic=10

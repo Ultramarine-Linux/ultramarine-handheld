@@ -15,15 +15,9 @@ Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
-index 0000000..0000000 100644
 --- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
 +++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
-@@ -1108,5 +1108,6 @@
- 			clock-names = "bus", "core", "reg";
- 			resets = <&mcu_ccu RST_BUS_MCU_NPU>;
- 			power-domains = <&ppu PD_NPU>;
+@@ -1111,0 +1111,1 @@
 +			status = "disabled";
- 		};
- 	};
 -- 
 2.51.0
