@@ -13,6 +13,7 @@ Source1001:      required.config
 Source1002:      aic8800-warpme-v7.2.patch
 # Production USB gadget console fragment used by the TG5050 recovery path.
 Source1003:      usb-gadget-console.config
+Source1004:      display-built-in.config
 
 Patch1001: 0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch
 Patch1002: 0002-phy-allwinner-add-sun55i-DSI-combo-D-PHY.patch
@@ -47,6 +48,16 @@ Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
 Patch1033: 0036-arm64-dts-tg5050-usb-pd-power-and-pins.patch
 Patch1034: 0037-arm64-dts-tg5050-disable-unused-etnaviv-npu-binding.patch
+Patch1035: 0038-drm-sunxi-sun55i-a523-de33-skip-legacy-sram-claim.patch
+Patch1036: 0039-arm64-dts-sun55i-a523-add-display-engine-node.patch
+Patch1037: 0040-drm-sun4i-a523-de35-rcq-backend-and-integration.patch
+Patch1038: 0041-drm-sun4i-tcon-log-a523-dsi-trigger-state.patch
+Patch1039: 0042-drm-sun6i-dsi-attach-panel-before-drm-master.patch
+Patch1040: 0043-drm-sun4i-tcon-log-enable-state.patch
+Patch1041: 0044-drm-sun4i-force-tcon-vblank-enable.patch
+Patch1042: 0045-drm-sun6i-dsi-a523-video-start-delay-one.patch
+Patch1043: 0046-drm-sun6i-dsi-a523-combine-hs-video-start.patch
+Patch1044: 0047-drm-sun6i-dsi-log-post-hs-state.patch
 %global buildid .tg5050
 %global krel 7.2.0-tg5050
 %global debug_package %{nil}
@@ -119,6 +130,7 @@ tar -xf %{SOURCE2} -C integration --strip-components=1
 cp integration/kernel/trimui.config trimui.config
 cp %{SOURCE1001} required.config
 cp %{SOURCE1003} usb-gadget-console.config
+cp %{SOURCE1004} display-built-in.config
 install -D -m 0644 integration/kernel/drivers/phy-sun55i-dsi-combo.c drivers/phy/allwinner/phy-sun55i-dsi-combo.c
 install -D -m 0644 integration/kernel/drivers/pwm-sun20i.c drivers/pwm/pwm-sun20i.c
 install -D -m 0644 integration/kernel/drivers/panel-trimui-smart-pro-s.c drivers/gpu/drm/panel/panel-trimui-smart-pro-s.c
@@ -128,6 +140,16 @@ done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
 %patch 1033 -p1
 %patch 1034 -p1
+%patch 1035 -p1
+%patch 1036 -p1
+%patch 1037 -p1
+%patch 1038 -p1
+%patch 1039 -p1
+%patch 1040 -p1
+%patch 1041 -p1
+%patch 1042 -p1
+%patch 1043 -p1
+%patch 1044 -p1
 %global make %{__make} %{_make_output_sync} %{?_smp_mflags} %{_make_verbose} CC="$CC" CXX="$CXX" HOSTCC="${HOSTCC:-gcc}" HOSTCXX="${HOSTCXX:-g++}" CROSS_COMPILE="${CROSS_COMPILE-}"
 %build
 export ARCH=arm64
@@ -135,7 +157,12 @@ export KBUILD_BUILD_USER=ultramarine
 export KBUILD_BUILD_HOST=tg5050-builder
 export KBUILD_BUILD_TIMESTAMP="${SOURCE_DATE_EPOCH}"
 %{make} defconfig
-./scripts/kconfig/merge_config.sh -m .config trimui.config required.config usb-gadget-console.config
+./scripts/kconfig/merge_config.sh -m .config trimui.config required.config usb-gadget-console.config display-built-in.config
+# The board fragment carries the display drivers as modules.  Force the
+# first-light path built-in after all fragments have been merged, otherwise
+# the DRM master modesets before the panel and DSI host are registered.
+scripts/config --enable CONFIG_DRM_PANEL_TRIMUI_SMART_PRO_S
+scripts/config --enable CONFIG_DRM_SUN6I_DSI
 scripts/config --set-str CONFIG_LOCALVERSION "-tg5050"
 %{make} olddefconfig
 %{make} Image modules

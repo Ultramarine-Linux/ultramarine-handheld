@@ -1,0 +1,33 @@
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -265,6 +265,16 @@
+ 		sun4i_tcon_lvds_set_status(tcon, encoder, true);
+ 
+ 	sun4i_tcon_channel_set_status(tcon, channel, enabled);
++
++	if (enabled && channel == 0) {
++		u32 gctl, ctl, gint0;
++
++		regmap_read(tcon->regs, SUN4I_TCON_GCTL_REG, &gctl);
++		regmap_read(tcon->regs, SUN4I_TCON0_CTL_REG, &ctl);
++		regmap_read(tcon->regs, SUN4I_TCON_GINT0_REG, &gint0);
++		dev_info(tcon->dev, "TCON enable gctl=%#x ctl0=%#x gint0=%#x\n",
++			 gctl, ctl, gint0);
++	}
+ }
+ 
+ void sun4i_tcon_enable_vblank(struct sun4i_tcon *tcon, bool enable)
+@@ -292,6 +302,13 @@
+ 
+ 	regmap_update_bits(tcon->regs, SUN4I_TCON_GINT0_REG, mask, val);
+ 
++	if (enable) {
++		u32 gint0;
++
++		regmap_read(tcon->regs, SUN4I_TCON_GINT0_REG, &gint0);
++		dev_info(tcon->dev, "TCON vblank gint0=%#x mask=%#x\n", gint0, mask);
++	}
++
+ 	/* TEMP: move the TCON1/TV vblank IRQ line for the RCQ-arm timing probe */
+ 	if (enable && tv_vblank_line >= 0) {
+ 		regmap_write(tcon->regs, SUN4I_TCON_GINT1_REG,

@@ -1,0 +1,28 @@
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -967,13 +967,12 @@
+ 
+ 	if (IS_ERR(panel))
+ 		return PTR_ERR(panel);
+-	if (!dsi->drm || !dsi->drm->registered)
+-		return -EPROBE_DEFER;
+ 
+ 	dsi->panel = panel;
+ 	dsi->device = device;
+ 
+-	drm_kms_helper_hotplug_event(dsi->drm);
++	if (dsi->drm && dsi->drm->registered)
++		drm_kms_helper_hotplug_event(dsi->drm);
+ 
+ 	dev_info(host->dev, "Attached device %s\n", device->name);
+ 
+@@ -1079,6 +1078,9 @@
+ 
+ 	dsi->drm = drm;
+ 
++	if (dsi->panel)
++		drm_kms_helper_hotplug_event(dsi->drm);
++
+ 	return 0;
+ 
+ err_cleanup_connector:

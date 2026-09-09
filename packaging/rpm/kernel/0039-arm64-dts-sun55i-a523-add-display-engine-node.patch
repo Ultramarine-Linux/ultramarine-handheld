@@ -1,0 +1,15 @@
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -816,6 +816,12 @@
+ 			};
+ 		};
+ 
++		de_engine: display-engine {
++			compatible = "allwinner,sun50i-h6-display-engine";
++			allwinner,pipelines = <&mixer0>;
++			status = "okay";
++		};
++
+ 		tcon_top: tcon-top@5500000 {
+ 			compatible = "allwinner,sun50i-h6-tcon-top";
+ 			reg = <0x05500000 0x1000>;

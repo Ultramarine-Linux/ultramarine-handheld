@@ -1,0 +1,20 @@
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -795,6 +795,17 @@
+ 
+ 	/* HSC start now chains directly into the continuous HSD sequence. */
+ 	sun6i_dsi_start(dsi, DSI_START_HSC);
++
++	{
++		u32 ctl0, ctl1, jump, func;
++
++		regmap_read(dsi->regs, SUN6I_DSI_BASIC_CTL0_REG, &ctl0);
++		regmap_read(dsi->regs, SUN6I_DSI_BASIC_CTL1_REG, &ctl1);
++		regmap_read(dsi->regs, SUN6I_DSI_INST_JUMP_SEL_REG, &jump);
++		regmap_read(dsi->regs, SUN6I_DSI_INST_FUNC_REG(DSI_INST_ID_LP11), &func);
++		dev_info(dsi->dev, "DSI HS state ctl0=%#x ctl1=%#x jump=%#x lp11=%#x\n",
++			 ctl0, ctl1, jump, func);
++	}
+ }
+ 
+ static void sun6i_dsi_encoder_disable(struct drm_encoder *encoder)
