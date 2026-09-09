@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] arm64: dts: allwinner: a523: attach display0 top to VO0
+
+The TG5050 stock DT assigns vo0@5500000 to PCK-600 domain 3 (VO0).
+The mainline display0 top node omitted this dependency. With no consumer,
+genpd powers VO0 off during late init even though the TCON and DSI clocks
+remain enabled and DRM still reports an active CRTC. Live register dumps
+then read entirely as zero for both TCON-LCD1 and DSI1.
+
+Describe the same power-domain dependency on tcon_top. Platform probing
+will power the domain before the display-top driver touches registers and
+keep it claimed while that device is bound. This addresses power-domain
+ownership only; it does not claim to fix the remaining DE/DSI scanout bugs.
+
+Source: TG5050 vendor kernel DT, /soc@3000000/vo0@5500000,
+        power-domains = <&pck600 3>; mainline PD_VO0 is also 3.
+---
+ arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -825,6 +825,7 @@
+ 		tcon_top: tcon-top@5500000 {
+ 			compatible = "allwinner,sun50i-h6-tcon-top";
+ 			reg = <0x05500000 0x1000>;
++			power-domains = <&pck600 PD_VO0>;
+ 			clocks = <&ccu CLK_BUS_DISPLAY0_TOP>,
+ 				 <&ccu CLK_TCON_TV0>;
+ 			clock-names = "bus", "tcon-tv0";

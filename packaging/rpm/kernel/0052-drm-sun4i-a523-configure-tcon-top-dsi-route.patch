@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sun4i: configure TCON-TOP mux for DSI
+
+The DSI encoder path configured the TCON CPU interface but skipped
+sun4i_tcon_set_mux(). That prevented the existing sun8i TCON-TOP hook from
+programming PORT_SEL for the mixer-to-LCD1 route.
+
+---
+ drivers/gpu/drm/sun4i/sun4i_tcon.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -807,3 +807,4 @@
+ 		sun4i_tcon0_mode_set_cpu(tcon, encoder, mode);
++		sun4i_tcon_set_mux(tcon, 0, encoder);
+ 		break;
+ 	case DRM_MODE_ENCODER_LVDS:

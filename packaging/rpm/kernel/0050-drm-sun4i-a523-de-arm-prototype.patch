@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sun4i: a523: declare DE arm helper
+
+Declare the DE arm helper before the commit path uses it for the initial
+A523 AHB bootstrap load.
+
+---
+ drivers/gpu/drm/sun4i/sun55i_de.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/gpu/drm/sun4i/sun55i_de.c
++++ b/drivers/gpu/drm/sun4i/sun55i_de.c
+@@ -344,4 +344,5 @@
+ static enum hrtimer_restart sun55i_de_arm_timer(struct hrtimer *t);
+ static u32 sun55i_de_arm_target(struct sun55i_de *de);
++static void sun55i_de_do_arm(struct sun55i_de *de);
+ 
+ static struct sun55i_de_block *de_blk(struct sun8i_mixer *mixer, unsigned int i)

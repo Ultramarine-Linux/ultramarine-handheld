@@ -58,6 +58,12 @@ Patch1041: 0044-drm-sun4i-force-tcon-vblank-enable.patch
 Patch1042: 0045-drm-sun6i-dsi-a523-video-start-delay-one.patch
 Patch1043: 0046-drm-sun6i-dsi-a523-combine-hs-video-start.patch
 Patch1044: 0047-drm-sun6i-dsi-log-post-hs-state.patch
+Patch1045: 0048-arm64-dts-sun55i-a523-keep-display0-power-domain-on.patch
+Patch1046: 0049-drm-sun4i-a523-route-de-to-tcon-lcd1.patch
+Patch1047: 0050-drm-sun4i-a523-de-arm-prototype.patch
+Patch1048: 0051-drm-sun4i-a523-bootstrap-first-ahb-load.patch
+Patch1049: 0052-drm-sun4i-a523-configure-tcon-top-dsi-route.patch
+Patch1050: 0053-drm-sun4i-a523-use-continuous-tcon-for-dsi.patch
 %global buildid .tg5050
 %global krel 7.2.0-tg5050
 %global debug_package %{nil}
@@ -150,6 +156,12 @@ printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >
 %patch 1042 -p1
 %patch 1043 -p1
 %patch 1044 -p1
+%patch 1045 -p1
+%patch 1046 -p1
+%patch 1047 -p1
+%patch 1048 -p1
+%patch 1049 -p1
+%patch 1050 -p1
 %global make %{__make} %{_make_output_sync} %{?_smp_mflags} %{_make_verbose} CC="$CC" CXX="$CXX" HOSTCC="${HOSTCC:-gcc}" HOSTCXX="${HOSTCXX:-g++}" CROSS_COMPILE="${CROSS_COMPILE-}"
 %build
 export ARCH=arm64

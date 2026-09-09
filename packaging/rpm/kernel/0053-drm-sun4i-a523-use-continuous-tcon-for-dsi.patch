@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Wed, 9 Sep 2026 20:36:58 +0700
+Subject: [PATCH] drm: sun4i: a523: use continuous TCON timing for DSI
+
+The A523 DSI path cannot complete frames through the 8080 CPU-interface
+TRI_FINISH trigger. Use the TCON's free-running HV timing setup for the
+DSI output, then restore the DSI-specific 4:1 pixel-clock ratio and output
+tri-state configuration. This makes the TCON vblank interrupt continuous;
+the DE33 mixer remains responsible for feeding the pixel stream.
+
+Hardware result during incremental bring-up: TCON IRQ 124 advanced at
+frame rate and vblank/flip_done timeouts disappeared.
+
+---
+ drivers/gpu/drm/sun4i/sun4i_tcon.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -806,3 +806,19 @@
+ 		/* DSI is tied to special case of CPU interface */
+-		sun4i_tcon0_mode_set_cpu(tcon, encoder, mode);
++		{
++			struct sun6i_dsi *dsi = encoder_to_sun6i_dsi(encoder);
++			struct mipi_dsi_device *device = dsi->device;
++			u8 bpp = mipi_dsi_pixel_format_to_bpp(device->format);
++
++			/* A523 DSI uses the TCON's free-running HV timing path. */
++			sun4i_tcon0_mode_set_rgb(tcon, encoder, mode);
++			tcon->dclk_min_div = SUN6I_DSI_TCON_DIV;
++			tcon->dclk_max_div = SUN6I_DSI_TCON_DIV;
++			clk_set_rate(tcon->dclk,
++				     mode->crtc_clock * 1000 * (bpp / device->lanes) /
++				     SUN6I_DSI_TCON_DIV);
++			regmap_update_bits(tcon->regs, SUN4I_TCON0_CTL_REG,
++					   SUN4I_TCON0_CTL_IF_MASK, 0);
++			regmap_write(tcon->regs, SUN4I_TCON0_IO_TRI_REG,
++				     0xe0000000);
++		}
+ 		sun4i_tcon_set_mux(tcon, 0, encoder);
