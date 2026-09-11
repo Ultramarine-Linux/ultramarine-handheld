@@ -14,6 +14,7 @@ Source1002:      aic8800-warpme-v7.2.patch
 # Production USB gadget console fragment used by the TG5050 recovery path.
 Source1003:      usb-gadget-console.config
 Source1004:      display-built-in.config
+Source1005:      https://github.com/radxa/allwinner-bsp/archive/87387566b989bef746d55117880259498ba496db.tar.gz
 
 Patch1001: 0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch
 Patch1002: 0002-phy-allwinner-add-sun55i-DSI-combo-D-PHY.patch
@@ -59,15 +60,21 @@ Patch1051: 0054-drm-sun4i-a523-enable-lcd1-dsi-top-gate.patch
 Patch1052: 0055-drm-sun4i-dsi-prevent-burst-loop-delay-underflow.patch
 Patch1057: 0060-drm-sun4i-a523-enable-four-phase-tcon-dclk.patch
 Patch1061: 0065-drm-sun8i-a523-use-bsp-vch0-primary.patch
-Patch1062: 0066-drm-sun4i-a523-implement-cpu-trigger-setup.patch
-Patch1063: 0067-drm-sun4i-route-cpu-trigger-dsi-through-tcon-top.patch
-Patch1064: 0068-drm-sun4i-trace-a523-cpu-trigger-order.patch
 Patch1066: 0070-drm-sun4i-follow-bsp-tcon-dsi-open-order.patch
-Patch1067: 0071-drm-sun4i-match-bsp-cpu-dsi-fields.patch
 Patch1068: 0072-drm-panel-tg5050-match-vendor-dsi-contract.patch
-Patch1069: 0073-drm-sun4i-match-bsp-a523-tcon-trigger-fields.patch
 Patch1070: 0074-clk-sunxi-a523-match-bsp-de350-port-channel-mux.patch
 Patch1071: 0075-clk-sunxi-a523-select-tcon1-and-de-buffer-depth.patch
+Patch1072: 0076-drm-sun8i-a523-implement-proper-vch0-rgb-contract.patch
+Patch1073: 0077-drm-sun8i-a523-vch0-csc-layers-window-offset.patch
+Patch1074: 0078-drm-sun8i-integrate-a523-de350-rcq-transport.patch
+Patch1075: 0079-drm-sun8i-wire-a523-de350-rcq-into-mixer.patch
+Patch1076: 0080-drm-sun8i-enable-a523-rcq-mixer-topology.patch
+Patch1077: 0081-drm-sun8i-de350-fix-rcq-completion-and-ownership.patch
+Patch1078: 0082-drm-sun4i-start-dsi-before-plane-commits.patch
+Patch1079: 0083-drm-sun4i-a523-use-dsi-video-vblank.patch
+Patch1080: 0084-clk-sunxi-a523-match-six-channel-mixer-map.patch
+Patch1081: 0085-drm-sun8i-a523-fix-all-vi-csc-channels.patch
+Patch1082: 0086-drm-sun8i-de350-include-channel-csc-in-rcq.patch
 
 
 
@@ -144,6 +151,8 @@ cp integration/kernel/trimui.config trimui.config
 cp %{SOURCE1001} required.config
 cp %{SOURCE1003} usb-gadget-console.config
 cp %{SOURCE1004} display-built-in.config
+mkdir vendor-sunxi-source
+tar -xf %{SOURCE1005} -C vendor-sunxi-source --strip-components=1
 install -D -m 0644 integration/kernel/drivers/phy-sun55i-dsi-combo.c drivers/phy/allwinner/phy-sun55i-dsi-combo.c
 install -D -m 0644 integration/kernel/drivers/pwm-sun20i.c drivers/pwm/pwm-sun20i.c
 install -D -m 0644 integration/kernel/drivers/panel-trimui-smart-pro-s.c drivers/gpu/drm/panel/panel-trimui-smart-pro-s.c
@@ -164,15 +173,21 @@ printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >
 %patch 1052 -p1
 %patch 1057 -p1
 %patch 1061 -p1
-%patch 1062 -p1
-%patch 1063 -p1
-%patch 1064 -p1
 %patch 1066 -p1
-%patch 1067 -p1
 %patch 1068 -p1
-%patch 1069 -p1
 %patch 1070 -p1
 %patch 1071 -p1
+%patch 1072 -p1
+%patch 1073 -p1
+%patch 1074 -p1
+%patch 1075 -p1
+%patch 1076 -p1
+%patch 1077 -p1
+%patch 1078 -p1
+%patch 1079 -p1
+%patch 1080 -p1
+%patch 1081 -p1
+%patch 1082 -p1
 
 
 

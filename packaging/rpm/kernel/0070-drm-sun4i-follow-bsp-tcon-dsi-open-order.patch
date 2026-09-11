@@ -13,11 +13,10 @@ Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
 ---
 --- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
 +++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
-@@ -795,10 +795,15 @@
- 	if (dsi->panel)
+@@ -795,7 +795,13 @@
  		drm_panel_enable(dsi->panel);
  
--	dev_info(dsi->dev, "A523 CPU trigger: DSI panel enabled, starting HSC\n");
+-	/* HSC start now chains directly into the continuous HSD sequence. */
 +	/* Video start is deferred until TCON and the DE commit are complete. */
 +}
 +
@@ -25,13 +24,11 @@ Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
 +{
 +	dev_info(dsi->dev, "A523 BSP order: start DSI HSC/HSD\n");
  	sun6i_dsi_start(dsi, DSI_START_HSC);
--	dev_info(dsi->dev, "A523 CPU trigger: DSI enable exit\n");
--}
-+}
+ }
 +EXPORT_SYMBOL(sun6i_dsi_start_video);
  
  static void sun6i_dsi_encoder_disable(struct drm_encoder *encoder)
- {
+
 --- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
 +++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
 @@ -50,6 +50,8 @@

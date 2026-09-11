@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] drm: sun8i: include all six DE350 channel CSC blocks in RCQ
+
+The CSC window is separate from each channel overlay. Match de35x 0x44-byte
+blocks at channel base plus 0x800. This does not claim scaler coverage.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/gpu/drm/sun4i/sun8i_de350_rcq.c
++++ b/drivers/gpu/drm/sun4i/sun8i_de350_rcq.c
+@@ -18,7 +18,7 @@
+ #define RCQ_CTL        0x10
+ #define RCQ_FINISH     BIT(2)
+ #define RCQ_BUSY       BIT(4)
+-#define RCQ_BLOCKS     31
++#define RCQ_BLOCKS     37
+ #define RCQ_HEADS      110
+ #define RCQ_ALIGN      64
+ 
+@@ -87,6 +87,8 @@
+ 		0x1c1000, 0x1c1020, 0x1c1040, 0x1c1060, 0x1c1080, 0x1c10e0,
+ 		0x1e1000, 0x1e1020, 0x1e1040, 0x1e1060, 0x1e1080, 0x1e10e0,
+ 		0x201000, 0x201020, 0x201040, 0x201060, 0x201080, 0x2010e0,
++		/* DE350 channel CSC blocks, separate from the overlay windows. */
++		0x100800, 0x120800, 0x140800, 0x1c0800, 0x1e0800, 0x200800,
+ 	};
+ 	static const u32 sizes[RCQ_BLOCKS] = {
+ 		0x60, 0x24, 0x60, 0x2c,
+@@ -96,6 +98,7 @@
+ 		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
+ 		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
+ 		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
++		0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
+ 	};
+ 	struct sun8i_de350_rcq *rcq;
+ 	size_t heads_size, data_size, off;

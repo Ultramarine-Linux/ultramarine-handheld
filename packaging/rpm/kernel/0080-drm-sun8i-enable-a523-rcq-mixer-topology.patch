@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 12 Sep 2026 09:00:00 +0700
+Subject: [PATCH] drm: sun8i: enable full A523 RCQ mixer topology
+
+Enable the full three-VI/three-UI A523 topology while keeping VI0 primary.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -903,8 +903,9 @@
+ 	.de_type	= SUN8I_MIXER_DE33,
+ 	.mod_rate	= 600000000,
+ 	.vi_num		= 3,
+-	.ui_num		= 0,
+-	.map		= {0, 1, 2},
++	.ui_num		= 3,
++	.map		= {0, 1, 2, 6, 7, 8},
++	.uses_rcq	= true,
+ };
+ 
+ static const struct of_device_id sun8i_mixer_of_table[] = {
+-- 
+2.43.0

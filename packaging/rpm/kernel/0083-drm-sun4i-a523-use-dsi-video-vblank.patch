@@ -1,0 +1,392 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] drm: sun4i: use DSI video-vblank on A523 single-link output
+
+Route A523 single-link video vblank and flip events through DSI GINT0.
+The BSP places VIDEO_VBLK enable at bit 2 and its W1C flag at bit 18.
+Keep TCON ownership for all other variants and modes.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_crtc.c
++++ b/drivers/gpu/drm/sun4i/sun4i_crtc.c
+@@ -132,8 +132,21 @@
+ {
+ 	struct drm_encoder *encoder = sun4i_crtc_get_encoder(crtc);
+ 	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
++	struct sun6i_dsi *vblank_dsi = NULL;
+ 
+ 	DRM_DEBUG_DRIVER("Enabling the CRTC\n");
++
++	/* This host currently supports single-link DSI only. */
++	if (encoder && encoder->encoder_type == DRM_MODE_ENCODER_DSI) {
++		struct sun6i_dsi *dsi = encoder_to_sun6i_dsi(encoder);
++
++		if (dsi->variant->has_video_vblank_irq && dsi->device &&
++		    (dsi->device->mode_flags & MIPI_DSI_MODE_VIDEO))
++			vblank_dsi = dsi;
++	}
++	WRITE_ONCE(scrtc->vblank_dsi, vblank_dsi);
++	if (vblank_dsi)
++		sun4i_tcon_enable_vblank(scrtc->tcon, false);
+ 
+ 	sun4i_tcon_set_status(scrtc->tcon, encoder, true);
+ 
+@@ -165,6 +178,11 @@
+ 
+ 	DRM_DEBUG_DRIVER("Enabling VBLANK on crtc %p\n", crtc);
+ 
++	if (scrtc->vblank_dsi) {
++		sun6i_dsi_enable_vblank(scrtc->vblank_dsi, true);
++		return 0;
++	}
++
+ 	sun4i_tcon_enable_vblank(scrtc->tcon, true);
+ 
+ 	return 0;
+@@ -175,6 +193,11 @@
+ 	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+ 
+ 	DRM_DEBUG_DRIVER("Disabling VBLANK on crtc %p\n", crtc);
++
++	if (scrtc->vblank_dsi) {
++		sun6i_dsi_enable_vblank(scrtc->vblank_dsi, false);
++		return;
++	}
+ 
+ 	sun4i_tcon_enable_vblank(scrtc->tcon, false);
+ }
+--- a/drivers/gpu/drm/sun4i/sun4i_crtc.h
++++ b/drivers/gpu/drm/sun4i/sun4i_crtc.h
+@@ -15,6 +15,7 @@
+ 
+ 	struct sunxi_engine		*engine;
+ 	struct sun4i_tcon		*tcon;
++	struct sun6i_dsi			*vblank_dsi;
+ };
+ 
+ static inline struct sun4i_crtc *drm_crtc_to_sun4i_crtc(struct drm_crtc *crtc)
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -771,8 +771,11 @@
+ 			SUN4I_TCON_GINT0_TCON0_TRI_FINISH_INT)))
+ 		return IRQ_NONE;
+ 
+-	drm_crtc_handle_vblank(&scrtc->crtc);
+-	sun4i_tcon_finish_page_flip(drm, scrtc);
++	/* A523 single-link DSI owns vblank, including pending flip events. */
++	if (!READ_ONCE(scrtc->vblank_dsi)) {
++		drm_crtc_handle_vblank(&scrtc->crtc);
++		sun4i_tcon_finish_page_flip(drm, scrtc);
++	}
+ 
+ 	/* Acknowledge the interrupt */
+ 	regmap_update_bits(tcon->regs, SUN4I_TCON_GINT0_REG,
+@@ -781,7 +784,7 @@
+ 			   SUN4I_TCON_GINT0_TCON0_TRI_FINISH_INT,
+ 			   0);
+ 
+-	if (engine->ops->vblank_quirk)
++	if (!READ_ONCE(scrtc->vblank_dsi) && engine->ops->vblank_quirk)
+ 		engine->ops->vblank_quirk(engine);
+ 
+ 	return IRQ_HANDLED;
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -9,6 +9,8 @@
+ #include <linux/clk.h>
+ #include <linux/component.h>
+ #include <linux/crc-ccitt.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/module.h>
+ #include <linux/of_address.h>
+ #include <linux/phy/phy-mipi-dphy.h>
+@@ -25,15 +27,21 @@
+ #include <drm/drm_print.h>
+ #include <drm/drm_probe_helper.h>
+ #include <drm/drm_simple_kms_helper.h>
++#include <drm/drm_vblank.h>
+ 
+ #include "sun4i_crtc.h"
+ #include "sun4i_tcon.h"
+ #include "sun6i_mipi_dsi.h"
++#include "sunxi_engine.h"
+ 
+ #include <video/mipi_display.h>
+ 
+ #define SUN6I_DSI_CTL_REG		0x000
+ #define SUN6I_DSI_CTL_EN			BIT(0)
++
++#define SUN6I_DSI_GINT0_REG		0x004
++#define SUN6I_DSI_GINT0_VIDEO_VBLK_EN	BIT(2)
++#define SUN6I_DSI_GINT0_VIDEO_VBLK_FLAG	BIT(18)
+ 
+ #define SUN6I_DSI_BASIC_CTL_REG		0x00c
+ #define SUN6I_DSI_BASIC_CTL_TRAIL_INV(n)		(((n) & 0xf) << 4)
+@@ -720,6 +728,107 @@
+ 	return 0;
+ }
+ 
++/*
++ * GINT0 has enable bits in [15:0] and W1C flags in [31:16]. This
++ * driver owns only VIDEO_VBLK: never feed a status read into an RMW.
++ * Use MMIO directly, with the bus clock held for the entire IRQ lifetime,
++ * rather than the regmap's per-access clock gating in hard IRQ context.
++ */
++static void sun6i_dsi_write_vblank_irq(struct sun6i_dsi *dsi, bool enable)
++{
++	writel(SUN6I_DSI_GINT0_VIDEO_VBLK_FLAG |
++	       (enable ? SUN6I_DSI_GINT0_VIDEO_VBLK_EN : 0),
++	       dsi->base + SUN6I_DSI_GINT0_REG);
++}
++
++void sun6i_dsi_enable_vblank(struct sun6i_dsi *dsi, bool enable)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&dsi->irq_lock, flags);
++	dsi->vblank_enabled = enable;
++	/* CRTC vblank_on can precede encoder enable; remember the request. */
++	if (dsi->irq_ready)
++		sun6i_dsi_write_vblank_irq(dsi, enable);
++	spin_unlock_irqrestore(&dsi->irq_lock, flags);
++}
++EXPORT_SYMBOL_GPL(sun6i_dsi_enable_vblank);
++
++static irqreturn_t sun6i_dsi_irq(int irq, void *data)
++{
++	struct sun6i_dsi *dsi = data;
++	struct sun4i_crtc *scrtc;
++	struct drm_crtc *crtc;
++	unsigned long flags;
++	u32 status;
++
++	spin_lock_irqsave(&dsi->irq_lock, flags);
++	if (!dsi->irq_ready) {
++		spin_unlock_irqrestore(&dsi->irq_lock, flags);
++		return IRQ_NONE;
++	}
++
++	status = readl(dsi->base + SUN6I_DSI_GINT0_REG);
++	if (!(status & SUN6I_DSI_GINT0_VIDEO_VBLK_EN) ||
++	    !(status & SUN6I_DSI_GINT0_VIDEO_VBLK_FLAG)) {
++		spin_unlock_irqrestore(&dsi->irq_lock, flags);
++		return IRQ_NONE;
++	}
++
++	sun6i_dsi_write_vblank_irq(dsi, dsi->vblank_enabled);
++	crtc = dsi->vblank_crtc;
++	spin_unlock_irqrestore(&dsi->irq_lock, flags);
++
++	if (!crtc)
++		return IRQ_HANDLED;
++
++	scrtc = drm_crtc_to_sun4i_crtc(crtc);
++	if (READ_ONCE(scrtc->vblank_dsi) != dsi)
++		return IRQ_HANDLED;
++
++	drm_crtc_handle_vblank(crtc);
++	spin_lock_irqsave(&crtc->dev->event_lock, flags);
++	if (scrtc->event) {
++		drm_crtc_send_vblank_event(crtc, scrtc->event);
++		drm_crtc_vblank_put(crtc);
++		scrtc->event = NULL;
++	}
++	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
++
++	if (scrtc->engine->ops->vblank_quirk)
++		scrtc->engine->ops->vblank_quirk(scrtc->engine);
++
++	return IRQ_HANDLED;
++}
++
++static void sun6i_dsi_irq_start(struct sun6i_dsi *dsi)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&dsi->irq_lock, flags);
++	dsi->vblank_crtc = dsi->encoder.crtc;
++	dsi->irq_ready = true;
++	sun6i_dsi_write_vblank_irq(dsi, dsi->vblank_enabled);
++	spin_unlock_irqrestore(&dsi->irq_lock, flags);
++	enable_irq(dsi->irq);
++}
++
++static void sun6i_dsi_irq_stop(struct sun6i_dsi *dsi)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&dsi->irq_lock, flags);
++	sun6i_dsi_write_vblank_irq(dsi, false);
++	/* Flush the mask write before disabling clocks or asserting reset. */
++	readl(dsi->base + SUN6I_DSI_GINT0_REG);
++	dsi->irq_ready = false;
++	spin_unlock_irqrestore(&dsi->irq_lock, flags);
++
++	/* Also waits for event delivery outside irq_lock to finish. */
++	disable_irq(dsi->irq);
++	dsi->vblank_crtc = NULL;
++}
++
+ static void sun6i_dsi_encoder_enable(struct drm_encoder *encoder)
+ {
+ 	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
+@@ -735,9 +844,21 @@
+ 	err = regulator_enable(dsi->regulator);
+ 	if (err)
+ 		dev_warn(dsi->dev, "failed to enable VCC-DSI supply: %d\n", err);
+-
+-	reset_control_deassert(dsi->reset);
+-	clk_prepare_enable(dsi->mod_clk);
++	if (err && dsi->variant->has_video_vblank_irq)
++		return;
++
++	err = reset_control_deassert(dsi->reset);
++	if (err && dsi->variant->has_video_vblank_irq)
++		goto err_regulator;
++	err = clk_prepare_enable(dsi->mod_clk);
++	if (err && dsi->variant->has_video_vblank_irq)
++		goto err_reset;
++	if (dsi->variant->has_video_vblank_irq) {
++		err = clk_prepare_enable(dsi->bus_clk);
++		if (err)
++			goto err_mod_clk;
++		sun6i_dsi_write_vblank_irq(dsi, false);
++	}
+ 
+ 	/*
+ 	 * Enable the DSI block.
+@@ -796,6 +917,17 @@
+ 
+ 	/* TCON is enabled before the encoder; start HS before plane commits. */
+ 	sun6i_dsi_start(dsi, DSI_START_HSC);
++	if (dsi->variant->has_video_vblank_irq)
++		sun6i_dsi_irq_start(dsi);
++	return;
++
++err_mod_clk:
++	clk_disable_unprepare(dsi->mod_clk);
++err_reset:
++	reset_control_assert(dsi->reset);
++err_regulator:
++	regulator_disable(dsi->regulator);
++	dev_err(dsi->dev, "Failed to power DSI: %d\n", err);
+ }
+ 
+ static void sun6i_dsi_encoder_disable(struct drm_encoder *encoder)
+@@ -803,6 +935,12 @@
+ 	struct sun6i_dsi *dsi = encoder_to_sun6i_dsi(encoder);
+ 
+ 	DRM_DEBUG_DRIVER("Disabling DSI output\n");
++
++	if (dsi->variant->has_video_vblank_irq) {
++		if (!dsi->irq_ready)
++			return;
++		sun6i_dsi_irq_stop(dsi);
++	}
+ 
+ 	if (dsi->panel) {
+ 		drm_panel_disable(dsi->panel);
+@@ -812,6 +950,8 @@
+ 	phy_power_off(dsi->dphy);
+ 	phy_exit(dsi->dphy);
+ 
++	if (dsi->variant->has_video_vblank_irq)
++		clk_disable_unprepare(dsi->bus_clk);
+ 	clk_disable_unprepare(dsi->mod_clk);
+ 	reset_control_assert(dsi->reset);
+ 	regulator_disable(dsi->regulator);
+@@ -1097,6 +1237,8 @@
+ {
+ 	struct sun6i_dsi *dsi = dev_get_drvdata(dev);
+ 
++	if (dsi->variant->has_video_vblank_irq && dsi->irq_ready)
++		sun6i_dsi_encoder_disable(&dsi->encoder);
+ 	dsi->drm = NULL;
+ }
+ 
+@@ -1125,12 +1267,15 @@
+ 	dsi->host.ops = &sun6i_dsi_host_ops;
+ 	dsi->host.dev = dev;
+ 	dsi->variant = variant;
++	spin_lock_init(&dsi->irq_lock);
+ 
+ 	base = devm_platform_ioremap_resource(pdev, 0);
+ 	if (IS_ERR(base)) {
+ 		dev_err(dev, "Couldn't map the DSI encoder registers\n");
+ 		return PTR_ERR(base);
+ 	}
++
++	dsi->base = base;
+ 
+ 	dsi->regulator = devm_regulator_get(dev, "vcc-dsi");
+ 	if (IS_ERR(dsi->regulator))
+@@ -1181,6 +1326,17 @@
+ 		goto err_unprotect_clk;
+ 	}
+ 
++	if (variant->has_video_vblank_irq) {
++		ret = platform_get_irq(pdev, 0);
++		if (ret < 0)
++			goto err_unprotect_clk;
++		dsi->irq = ret;
++		ret = devm_request_irq(dev, dsi->irq, sun6i_dsi_irq,
++				       IRQF_NO_AUTOEN, dev_name(dev), dsi);
++		if (ret)
++			goto err_unprotect_clk;
++	}
++
+ 	ret = mipi_dsi_host_register(&dsi->host);
+ 	if (ret) {
+ 		dev_err(dev, "Couldn't register MIPI-DSI host\n");
+@@ -1233,6 +1389,7 @@
+ 
+ static const struct sun6i_dsi_variant sun55i_a523_mipi_dsi_variant = {
+ 	.has_mod_clk	= true,
++	.has_video_vblank_irq = true,
+ };
+ 
+ static const struct of_device_id sun6i_dsi_of_table[] = {
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
+@@ -9,6 +9,8 @@
+ #ifndef _SUN6I_MIPI_DSI_H_
+ #define _SUN6I_MIPI_DSI_H_
+ 
++#include <linux/spinlock.h>
++
+ #include <drm/drm_connector.h>
+ #include <drm/drm_encoder.h>
+ #include <drm/drm_mipi_dsi.h>
+@@ -18,6 +20,7 @@
+ struct sun6i_dsi_variant {
+ 	bool			has_mod_clk;
+ 	bool			set_mod_clk;
++	bool			has_video_vblank_irq;
+ };
+ 
+ struct sun6i_dsi {
+@@ -38,6 +41,14 @@
+ 	struct drm_panel	*panel;
+ 
+ 	const struct sun6i_dsi_variant *variant;
++
++	/* irq_lock protects the requested vblank state and register access. */
++	spinlock_t		irq_lock;
++	void __iomem		*base;
++	int			irq;
++	bool			irq_ready;
++	bool			vblank_enabled;
++	struct drm_crtc		*vblank_crtc;
+ };
+ 
+ static inline struct sun6i_dsi *host_to_sun6i_dsi(struct mipi_dsi_host *host)
+@@ -50,6 +61,7 @@
+ 	return container_of(connector, struct sun6i_dsi, connector);
+ };
+ 
++void sun6i_dsi_enable_vblank(struct sun6i_dsi *dsi, bool enable);
+ 
+ static inline struct sun6i_dsi *encoder_to_sun6i_dsi(const struct drm_encoder *encoder)
+ {

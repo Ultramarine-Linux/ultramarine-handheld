@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] Start DSI once during encoder enable before plane commits
+
+The DRM RPM commit tail enables the encoder before committing planes.
+Start the instruction chain there, matching the working vendor order,
+rather than aborting and restarting it from every atomic flush.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -794,15 +794,9 @@
+ 	if (dsi->panel)
+ 		drm_panel_enable(dsi->panel);
+ 
+-	/* Video start is deferred until TCON and the DE commit are complete. */
+-}
+-
+-void sun6i_dsi_start_video(struct sun6i_dsi *dsi)
+-{
+-	dev_info(dsi->dev, "A523 BSP order: start DSI HSC/HSD\n");
++	/* TCON is enabled before the encoder; start HS before plane commits. */
+ 	sun6i_dsi_start(dsi, DSI_START_HSC);
+ }
+-EXPORT_SYMBOL(sun6i_dsi_start_video);
+ 
+ static void sun6i_dsi_encoder_disable(struct drm_encoder *encoder)
+ {
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.h
+@@ -50,7 +50,6 @@
+ 	return container_of(connector, struct sun6i_dsi, connector);
+ };
+ 
+-void sun6i_dsi_start_video(struct sun6i_dsi *dsi);
+ 
+ static inline struct sun6i_dsi *encoder_to_sun6i_dsi(const struct drm_encoder *encoder)
+ {
+--- a/drivers/gpu/drm/sun4i/sun4i_crtc.c
++++ b/drivers/gpu/drm/sun4i/sun4i_crtc.c
+@@ -89,15 +89,10 @@
+ {
+ 	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+ 	struct drm_pending_vblank_event *event = crtc->state->event;
+-	struct drm_encoder *encoder;
+ 
+ 	DRM_DEBUG_DRIVER("Committing plane changes\n");
+ 
+ 	sunxi_engine_commit(scrtc->engine, crtc, state);
+-	encoder = sun4i_crtc_get_encoder(crtc);
+-	if (encoder && encoder->encoder_type == DRM_MODE_ENCODER_DSI) {
+-		sun6i_dsi_start_video(encoder_to_sun6i_dsi(encoder));
+-	}
+ 
+ 	if (event) {
+ 		crtc->state->event = NULL;

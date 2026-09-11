@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 12 Sep 2026 08:00:00 +0700
+Subject: [PATCH] drm: sun8i: stage complete A523 DE350 RCQ first-light blocks
+
+Expand the first-light RCQ list to cover blender, formatter, all VI/UI channel layer parameter blocks, and channel CSC blocks.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+ /dev/null
++++ b/drivers/gpu/drm/sun4i/sun8i_de350_rcq.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef __SUN8I_DE350_RCQ_H__
++#define __SUN8I_DE350_RCQ_H__
++
++struct sun8i_mixer;
++
++int sun8i_de350_rcq_init(struct sun8i_mixer *mixer);
++void sun8i_de350_rcq_commit(struct sun8i_mixer *mixer);
++
++#endif
+
+ /dev/null
++++ b/drivers/gpu/drm/sun4i/sun8i_de350_rcq.c
+@@ -0,0 +1,175 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/* Minimal DE350 RCQ transport, derived from the A523 BSP de_top contract. */
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/slab.h>
++
++#include <drm/drm_print.h>
++
++#include "sun8i_de350_rcq.h"
++#include "sun8i_mixer.h"
++
++#define RCQ_HEAD_LADDR 0x14
++#define RCQ_HEAD_HADDR 0x18
++#define RCQ_HEAD_LEN   0x1c
++#define RCQ_STATUS     0x04
++#define RCQ_CTL        0x10
++#define RCQ_FINISH     BIT(4)
++#define RCQ_BLOCKS     31
++#define RCQ_HEADS      110
++#define RCQ_ALIGN      64
++
++struct sun8i_de350_rcq_head {
++	__le32 low_addr;
++	__le32 len_high;
++	__le32 dirty;
++	__le32 reg_offset;
++};
++
++struct sun8i_de350_rcq_block {
++	u32 reg_offset;
++	u32 size;
++	void *shadow;
++	dma_addr_t dma;
++	struct sun8i_de350_rcq_head *head;
++};
++
++struct sun8i_de350_rcq {
++	struct sun8i_de350_rcq_head *heads;
++	dma_addr_t heads_dma;
++	struct sun8i_de350_rcq_block block[RCQ_BLOCKS];
++	void *pool;
++	dma_addr_t pool_dma;
++	size_t pool_size;
++};
++
++static void rcq_head_init(struct sun8i_de350_rcq_block *block)
++{
++	struct sun8i_de350_rcq_head *head = block->head;
++
++	head->low_addr = cpu_to_le32(lower_32_bits(block->dma));
++	head->len_high = cpu_to_le32((block->size & 0x00ffffff) |
++		((upper_32_bits(block->dma) & 0xff) << 24));
++	head->dirty = cpu_to_le32(1);
++	head->reg_offset = cpu_to_le32(block->reg_offset);
++}
++
++static bool rcq_copy(struct sun8i_de350_rcq_block *block, struct regmap *map,
++		u32 map_offset)
++{
++	u32 i, value;
++	bool dirty = false;
++	__le32 *dst = block->shadow;
++
++	for (i = 0; i < block->size; i += 4) {
++		if (regmap_read(map, map_offset + i, &value))
++			value = 0;
++		if (dst[i / 4] != cpu_to_le32(value))
++			dirty = true;
++		dst[i / 4] = cpu_to_le32(value);
++	}
++	if (dirty)
++		block->head->dirty = cpu_to_le32(1);
++	return dirty;
++}
++
++int sun8i_de350_rcq_init(struct sun8i_mixer *mixer)
++{
++	static const u32 offsets[RCQ_BLOCKS] = {
++		0x281000, 0x281080, 0x2810a0, 0x285000,
++		0x101000, 0x101060, 0x1010c0,
++		0x121000, 0x121060, 0x1210c0,
++		0x141000, 0x141060, 0x1410c0,
++		0x1c1000, 0x1c1020, 0x1c1040, 0x1c1060, 0x1c1080, 0x1c10e0,
++		0x1e1000, 0x1e1020, 0x1e1040, 0x1e1060, 0x1e1080, 0x1e10e0,
++		0x201000, 0x201020, 0x201040, 0x201060, 0x201080, 0x2010e0,
++	};
++	static const u32 sizes[RCQ_BLOCKS] = {
++		0x60, 0x24, 0x60, 0x2c,
++		0x60, 0x60, 0x40,
++		0x60, 0x60, 0x40,
++		0x60, 0x60, 0x40,
++		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
++		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
++		0x1c, 0x1c, 0x1c, 0x1c, 0x0c, 0x1c,
++	};
++	struct sun8i_de350_rcq *rcq;
++	size_t heads_size, data_size, off;
++	unsigned int i;
++
++	rcq = devm_kzalloc(mixer->dev, sizeof(*rcq), GFP_KERNEL);
++	if (!rcq)
++		return -ENOMEM;
++	mixer->rcq = rcq;
++	heads_size = ALIGN(sizeof(*rcq->heads) * RCQ_HEADS, RCQ_ALIGN);
++	data_size = 0;
++	for (i = 0; i < RCQ_BLOCKS; i++)
++		data_size += ALIGN(sizes[i], RCQ_ALIGN);
++	rcq->pool_size = heads_size + data_size;
++	rcq->pool = dmam_alloc_coherent(mixer->dev, rcq->pool_size,
++		&rcq->pool_dma, GFP_KERNEL);
++	if (!rcq->pool)
++		return -ENOMEM;
++	rcq->heads = rcq->pool;
++	rcq->heads_dma = rcq->pool_dma;
++	off = heads_size;
++	for (i = 0; i < RCQ_BLOCKS; i++) {
++		struct sun8i_de350_rcq_block *block = &rcq->block[i];
++		block->reg_offset = offsets[i];
++		block->size = sizes[i];
++		block->shadow = (u8 *)rcq->pool + off;
++		block->dma = rcq->pool_dma + off;
++		block->head = &rcq->heads[i];
++		rcq_head_init(block);
++		off += ALIGN(sizes[i], RCQ_ALIGN);
++	}
++	regmap_write(mixer->top_regs, RCQ_HEAD_LADDR, lower_32_bits(rcq->heads_dma));
++	regmap_write(mixer->top_regs, RCQ_HEAD_HADDR, upper_32_bits(rcq->heads_dma));
++	regmap_write(mixer->top_regs, RCQ_HEAD_LEN, RCQ_HEADS * sizeof(*rcq->heads));
++	dev_info(mixer->dev, "A523 DE350 RCQ heads=%pad len=%zu pool=%zu\n",
++		&rcq->heads_dma, RCQ_HEADS * sizeof(*rcq->heads),
++		rcq->pool_size);
++	return 0;
++}
++
++void sun8i_de350_rcq_commit(struct sun8i_mixer *mixer)
++{
++	struct sun8i_de350_rcq *rcq = mixer->rcq;
++	u32 status;
++
++	if (!rcq)
++		return;
++	/* Blender and formatter live in the display-window regmap. */
++	rcq_copy(&rcq->block[0], mixer->disp_regs, 0x1000);
++	rcq_copy(&rcq->block[1], mixer->disp_regs, 0x1080);
++	rcq_copy(&rcq->block[2], mixer->disp_regs, 0x10a0);
++	rcq_copy(&rcq->block[3], mixer->disp_regs, 0x5000);
++	/* Each VI/UI channel contributes layer, parameter, and CSC blocks. */
++	for (unsigned int i = 4; i < RCQ_BLOCKS; i++)
++		rcq_copy(&rcq->block[i], mixer->engine.regs,
++			rcq->block[i].reg_offset - 0x100000);
++	dma_wmb();
++	regmap_read(mixer->top_regs, RCQ_STATUS, &status);
++	regmap_write(mixer->top_regs, RCQ_STATUS, status & RCQ_FINISH);
++	/* Vendor de_top_set_rcq_update waits for RCQ acceptance/busy. */
++	for (int i = 0; i < 10000; i++) {
++		regmap_read(mixer->top_regs, RCQ_STATUS, &status);
++		if (status & RCQ_FINISH)
++			break;
++		udelay(5);
++	}
++	regmap_write(mixer->top_regs, RCQ_CTL, 1);
++	for (int i = 0; i < 5000; i++) {
++		regmap_read(mixer->top_regs, RCQ_STATUS, &status);
++		if (status & RCQ_FINISH)
++			break;
++		udelay(10);
++	}
++	if (!(status & RCQ_FINISH))
++		return;
++	regmap_write(mixer->top_regs, RCQ_STATUS, status & RCQ_FINISH);
++	for (unsigned int i = 0; i < RCQ_BLOCKS; i++)
++		rcq->heads[i].dirty = cpu_to_le32(0);
++}
+ 
+-- 
+2.43.0

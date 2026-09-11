@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] drm/sun4i: program DE350 CSC for every A523 VI channel
+
+Use the per-channel CSC and DE3 coefficient precision instead of the
+two-entry DE2 offset table. Split input differences from output constants
+and retain RGB identity and YVU chroma swapping on all VI channels.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.c
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
+@@ -227,23 +227,54 @@
+ 	}
+ }
+ 
+-static void sun8i_a523_vch0_csc_setup(struct regmap *map)
++static void sun8i_de350_csc_setup(struct sun8i_layer *layer,
++				struct drm_plane_state *state,
++				enum sun8i_csc_mode mode)
+ {
+ 	static const u32 identity[] = {
+ 		0x00020000, 0, 0, 0,
+ 		0, 0x00020000, 0, 0,
+ 		0, 0, 0x00020000, 0,
+ 	};
+-	u32 base = 0x800;
++	struct regmap *map = layer->regs;
++	u32 base = layer->channel * DE33_CH_SIZE + 0x800;
++	u32 coeff[12], diff[3];
++	const u32 *table;
+ 	int i;
+ 
+-	/* BSP de35x RGB->RGB VCH0 CSC: identity matrix, then enable. */
+-	regmap_write(map, base + 0x4, 0);
+-	regmap_write(map, base + 0x8, 0);
+-	regmap_write(map, base + 0xc, 0);
+-	for (i = 0; i < ARRAY_SIZE(identity); i++)
+-		regmap_write(map, base + 0x10 + i * 4, identity[i]);
+-	regmap_write(map, base + 0x0, 1);
++	if (!state->crtc || !state->visible) {
++		regmap_write(map, SUN8I_CSC_CTRL(base), 0);
++		return;
++	}
++
++	/*
++	 * DE350 has a CSC at 0x800 within each channel, before the overlay
++	 * registers at 0x1000. It uses the DE3 17-bit fractional coefficients,
++	 * but stores positive input differences separately at 0x4/0x8/0xc,
++	 * not in the upper halves of the output constants as the blender does.
++	 * Keep RGB enabled with an identity matrix, as in the BSP de35x path.
++	 */
++	table = mode == SUN8I_CSC_MODE_OFF ? identity :
++		yuv2rgb_de3[state->color_range][state->color_encoding];
++
++	for (i = 0; i < 3; i++) {
++		diff[i] = -(s16)(table[i * 4 + 3] >> 16) & 0x3ff;
++		coeff[i * 4] = table[i * 4];
++		coeff[i * 4 + 1] = table[i * 4 + 1];
++		coeff[i * 4 + 2] = table[i * 4 + 2];
++		coeff[i * 4 + 3] = table[i * 4 + 3] & 0xffff;
++	}
++
++	if (mode == SUN8I_CSC_MODE_YVU2RGB) {
++		for (i = 0; i < 3; i++)
++			swap(coeff[i * 4 + 1], coeff[i * 4 + 2]);
++		swap(diff[1], diff[2]);
++	}
++
++	regmap_bulk_write(map, base + 0x4, diff, ARRAY_SIZE(diff));
++	regmap_bulk_write(map, SUN8I_CSC_COEFF(base, 0), coeff,
++			  ARRAY_SIZE(coeff));
++	regmap_write(map, SUN8I_CSC_CTRL(base), SUN8I_CSC_CTRL_EN);
+ }
+ 
+ void sun8i_csc_config(struct sun8i_layer *layer,
+@@ -252,9 +283,8 @@
+ 	u32 mode = sun8i_csc_get_mode(state);
+ 	u32 base;
+ 
+-	if (layer->cfg->a523_vch0 && layer->channel == 0 &&
+-	    state->fb && !state->fb->format->is_yuv) {
+-		sun8i_a523_vch0_csc_setup(layer->regs);
++	if (layer->cfg->a523_vch0) {
++		sun8i_de350_csc_setup(layer, state, mode);
+ 		return;
+ 	}
+ 

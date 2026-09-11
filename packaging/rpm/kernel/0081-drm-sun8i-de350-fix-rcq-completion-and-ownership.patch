@@ -1,0 +1,212 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] Separate RCQ finish from busy and retain in-flight DMA ownership
+
+DE350 reports RCQ finish on status bit 2; bit 4 is the separate
+submit condition. Preserve the coherent payload after a timeout and
+retire dirty heads only after observing and acknowledging real finish.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/gpu/drm/sun4i/sun8i_de350_rcq.c
++++ b/drivers/gpu/drm/sun4i/sun8i_de350_rcq.c
+@@ -16,7 +16,8 @@
+ #define RCQ_HEAD_LEN   0x1c
+ #define RCQ_STATUS     0x04
+ #define RCQ_CTL        0x10
+-#define RCQ_FINISH     BIT(4)
++#define RCQ_FINISH     BIT(2)
++#define RCQ_BUSY       BIT(4)
+ #define RCQ_BLOCKS     31
+ #define RCQ_HEADS      110
+ #define RCQ_ALIGN      64
+@@ -43,6 +44,8 @@
+ 	void *pool;
+ 	dma_addr_t pool_dma;
+ 	size_t pool_size;
++	bool pending;
++	bool completed;
+ };
+ 
+ static void rcq_head_init(struct sun8i_de350_rcq_block *block)
+@@ -56,23 +59,22 @@
+ 	head->reg_offset = cpu_to_le32(block->reg_offset);
+ }
+ 
+-static bool rcq_copy(struct sun8i_de350_rcq_block *block, struct regmap *map,
++static int rcq_copy(struct sun8i_de350_rcq_block *block, struct regmap *map,
+ 		u32 map_offset)
+ {
+ 	u32 i, value;
+-	bool dirty = false;
+ 	__le32 *dst = block->shadow;
++	int ret;
+ 
+ 	for (i = 0; i < block->size; i += 4) {
+-		if (regmap_read(map, map_offset + i, &value))
+-			value = 0;
++		ret = regmap_read(map, map_offset + i, &value);
++		if (ret)
++			return ret;
+ 		if (dst[i / 4] != cpu_to_le32(value))
+-			dirty = true;
++			block->head->dirty = cpu_to_le32(1);
+ 		dst[i / 4] = cpu_to_le32(value);
+ 	}
+-	if (dirty)
+-		block->head->dirty = cpu_to_le32(1);
+-	return dirty;
++	return 0;
+ }
+ 
+ int sun8i_de350_rcq_init(struct sun8i_mixer *mixer)
+@@ -97,7 +99,8 @@
+ 	};
+ 	struct sun8i_de350_rcq *rcq;
+ 	size_t heads_size, data_size, off;
+-	unsigned int i;
++	unsigned int i, value;
++	int ret;
+ 
+ 	rcq = devm_kzalloc(mixer->dev, sizeof(*rcq), GFP_KERNEL);
+ 	if (!rcq)
+@@ -125,51 +128,105 @@
+ 		rcq_head_init(block);
+ 		off += ALIGN(sizes[i], RCQ_ALIGN);
+ 	}
+-	regmap_write(mixer->top_regs, RCQ_HEAD_LADDR, lower_32_bits(rcq->heads_dma));
+-	regmap_write(mixer->top_regs, RCQ_HEAD_HADDR, upper_32_bits(rcq->heads_dma));
+-	regmap_write(mixer->top_regs, RCQ_HEAD_LEN, RCQ_HEADS * sizeof(*rcq->heads));
++	ret = regmap_write(mixer->top_regs, RCQ_HEAD_LADDR,
++			   lower_32_bits(rcq->heads_dma));
++	if (ret)
++		return ret;
++	ret = regmap_write(mixer->top_regs, RCQ_HEAD_HADDR,
++			   upper_32_bits(rcq->heads_dma));
++	if (ret)
++		return ret;
++	ret = regmap_write(mixer->top_regs, RCQ_HEAD_LEN,
++			   RCQ_HEADS * sizeof(*rcq->heads));
++	if (ret)
++		return ret;
++	ret = regmap_read(mixer->top_regs, RCQ_HEAD_LADDR, &value);
++	if (ret || value != lower_32_bits(rcq->heads_dma))
++		return ret ?: -EIO;
++	ret = regmap_read(mixer->top_regs, RCQ_HEAD_HADDR, &value);
++	if (ret || value != upper_32_bits(rcq->heads_dma))
++		return ret ?: -EIO;
++	ret = regmap_read(mixer->top_regs, RCQ_HEAD_LEN, &value);
++	if (ret || value != RCQ_HEADS * sizeof(*rcq->heads))
++		return ret ?: -EIO;
+ 	dev_info(mixer->dev, "A523 DE350 RCQ heads=%pad len=%zu pool=%zu\n",
+ 		&rcq->heads_dma, RCQ_HEADS * sizeof(*rcq->heads),
+ 		rcq->pool_size);
+ 	return 0;
+ }
+ 
++static int rcq_retire(struct sun8i_mixer *mixer, u32 *status)
++{
++	struct sun8i_de350_rcq *rcq = mixer->rcq;
++	unsigned int i;
++	int ret;
++
++	ret = regmap_read_poll_timeout(mixer->top_regs, RCQ_STATUS, *status,
++				       *status & RCQ_FINISH, 10, 50000);
++	if (ret)
++		return ret;
++	/* FINISH is W1C; do not acknowledge frame-end or acceptance here. */
++	ret = regmap_write(mixer->top_regs, RCQ_STATUS, RCQ_FINISH);
++	if (ret)
++		return ret;
++	for (i = 0; i < RCQ_BLOCKS; i++)
++		rcq->heads[i].dirty = cpu_to_le32(0);
++	rcq->pending = false;
++	if (!rcq->completed) {
++		dev_info(mixer->dev, "A523 RCQ first transfer finished: status=%#x\n",
++			 *status);
++		rcq->completed = true;
++	}
++	return 0;
++}
++
+ void sun8i_de350_rcq_commit(struct sun8i_mixer *mixer)
+ {
+ 	struct sun8i_de350_rcq *rcq = mixer->rcq;
+-	u32 status;
++	const char *phase = "previous transfer";
++	u32 status = 0;
++	unsigned int i;
++	int ret;
+ 
+ 	if (!rcq)
+ 		return;
+-	/* Blender and formatter live in the display-window regmap. */
+-	rcq_copy(&rcq->block[0], mixer->disp_regs, 0x1000);
+-	rcq_copy(&rcq->block[1], mixer->disp_regs, 0x1080);
+-	rcq_copy(&rcq->block[2], mixer->disp_regs, 0x10a0);
+-	rcq_copy(&rcq->block[3], mixer->disp_regs, 0x5000);
+-	/* Each VI/UI channel contributes layer, parameter, and CSC blocks. */
+-	for (unsigned int i = 4; i < RCQ_BLOCKS; i++)
+-		rcq_copy(&rcq->block[i], mixer->engine.regs,
+-			rcq->block[i].reg_offset - 0x100000);
++	/* A timed-out submission still owns the coherent heads and payload. */
++	if (rcq->pending) {
++		ret = rcq_retire(mixer, &status);
++		if (ret)
++			goto error;
++	}
++	phase = "stage registers";
++	for (i = 0; i < RCQ_BLOCKS; i++) {
++		struct sun8i_de350_rcq_block *block = &rcq->block[i];
++		bool display = block->reg_offset >= 0x280000;
++
++		ret = rcq_copy(block, display ? mixer->disp_regs : mixer->engine.regs,
++			       block->reg_offset - (display ? 0x280000 : 0x100000));
++		if (ret)
++			goto error;
++	}
++	phase = "clear stale finish";
++	ret = regmap_write(mixer->top_regs, RCQ_STATUS, RCQ_FINISH);
++	if (ret)
++		goto error;
++	phase = "submit condition";
++	ret = regmap_read_poll_timeout(mixer->top_regs, RCQ_STATUS, status,
++				       status & RCQ_BUSY, 5, 50000);
++	if (ret)
++		goto error;
+ 	dma_wmb();
+-	regmap_read(mixer->top_regs, RCQ_STATUS, &status);
+-	regmap_write(mixer->top_regs, RCQ_STATUS, status & RCQ_FINISH);
+-	/* Vendor de_top_set_rcq_update waits for RCQ acceptance/busy. */
+-	for (int i = 0; i < 10000; i++) {
+-		regmap_read(mixer->top_regs, RCQ_STATUS, &status);
+-		if (status & RCQ_FINISH)
+-			break;
+-		udelay(5);
+-	}
+-	regmap_write(mixer->top_regs, RCQ_CTL, 1);
+-	for (int i = 0; i < 5000; i++) {
+-		regmap_read(mixer->top_regs, RCQ_STATUS, &status);
+-		if (status & RCQ_FINISH)
+-			break;
+-		udelay(10);
+-	}
+-	if (!(status & RCQ_FINISH))
++	/* Preserve ownership even if the trigger write reports an error. */
++	rcq->pending = true;
++	phase = "trigger";
++	ret = regmap_write_bits(mixer->top_regs, RCQ_CTL, BIT(0), BIT(0));
++	if (ret)
++		goto error;
++	phase = "completion";
++	ret = rcq_retire(mixer, &status);
++	if (!ret)
+ 		return;
+-	regmap_write(mixer->top_regs, RCQ_STATUS, status & RCQ_FINISH);
+-	for (unsigned int i = 0; i < RCQ_BLOCKS; i++)
+-		rcq->heads[i].dirty = cpu_to_le32(0);
+-}
++error:
++	dev_err_ratelimited(mixer->dev, "A523 RCQ %s failed: %d status=%#x pending=%d\n",
++			    phase, ret, status, rcq->pending);
++}

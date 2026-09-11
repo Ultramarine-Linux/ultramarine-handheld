@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] Align A523 PORT2CHN with the three-VI three-UI mixer topology
+
+Encode VI0, VI1, VI2, UI0, UI1 and UI2 in the same order advertised by
+the A523 mixer configuration. The previous copied value omitted VI2.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+@@ -310,7 +310,8 @@
+ 	if (of_device_is_compatible(pdev->dev.of_node,
+ 				    "allwinner,sun55i-a523-de33-clk")) {
+ 		writel(0, reg + 0x24);
+-		writel(0x000a9810, reg + 0x28);
++		/* Logical ports: VI0, VI1, VI2, UI0, UI1, UI2. */
++		writel(0x00a98210, reg + 0x28);
+ 		de2tcon_mux = readl(reg + 0x10);
+ 		de2tcon_mux &= ~0xf;
+ 		de2tcon_mux |= 1;

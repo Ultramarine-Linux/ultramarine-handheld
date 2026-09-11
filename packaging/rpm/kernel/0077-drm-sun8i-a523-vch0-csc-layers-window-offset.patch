@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 07:05:00 +0700
+Subject: [PATCH] drm: sun8i: address A523 VCH0 CSC in layers window
+
+The VI layer regmap is rooted at the DE layers resource (DE + 0x100000),
+not at the full DE base. Therefore the BSP VCH0 CSC address DE + 0x100800
+is regmap offset 0x800. Do not add the normal channel layer base (0x1000)
+to this separate CSC block.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+ drivers/gpu/drm/sun4i/sun8i_csc.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_csc.c b/drivers/gpu/drm/sun4i/sun8i_csc.c
+--- a/drivers/gpu/drm/sun4i/sun8i_csc.c
++++ b/drivers/gpu/drm/sun4i/sun8i_csc.c
+@@ -227,14 +227,14 @@
+ 	}
+ }
+ 
+-static void sun8i_a523_vch0_csc_setup(struct regmap *map, u32 ch_base)
++static void sun8i_a523_vch0_csc_setup(struct regmap *map)
+ {
+ 	static const u32 identity[] = {
+ 		0x00020000, 0, 0, 0,
+ 		0, 0x00020000, 0, 0,
+ 		0, 0, 0x00020000, 0,
+ 	};
+-	u32 base = ch_base + 0x800;
++	u32 base = 0x800;
+ 	int i;
+ 
+ 	/* BSP de35x RGB->RGB VCH0 CSC: identity matrix, then enable. */
+@@ -254,7 +254,7 @@
+ 
+ 	if (layer->cfg->a523_vch0 && layer->channel == 0 &&
+ 	    state->fb && !state->fb->format->is_yuv) {
+-		sun8i_a523_vch0_csc_setup(layer->regs, sun8i_channel_base(layer));
++		sun8i_a523_vch0_csc_setup(layer->regs);
+ 		return;
+ 	}
+ 
+-- 
+2.43.0

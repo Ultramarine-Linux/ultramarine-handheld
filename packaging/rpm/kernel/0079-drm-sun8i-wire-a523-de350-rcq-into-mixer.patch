@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Subject: [PATCH] drm: sun8i: wire A523 RCQ into mixer commits
+
+Initialize the queue after mixer clocks/reset and layer creation.
+Retain VI0 as primary with the six-channel topology and constrain
+coherent DMA to the same address width as scanout.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+---
+--- a/drivers/gpu/drm/sun4i/Makefile
++++ b/drivers/gpu/drm/sun4i/Makefile
+@@ -16,7 +16,7 @@
+ 
+ sun8i-mixer-y			+= sun8i_mixer.o sun8i_ui_layer.o \
+ 				   sun8i_vi_layer.o sun8i_ui_scaler.o \
+-				   sun8i_vi_scaler.o sun8i_csc.o
++				   sun8i_vi_scaler.o sun8i_csc.o sun8i_de350_rcq.o
+ 
+ sun4i-tcon-y			+= sun4i_crtc.o
+ sun4i-tcon-y			+= sun4i_tcon_dclk.o
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.h
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.h
+@@ -195,6 +195,7 @@
+  * @mod_rate: module clock rate that needs to be set in order to have
+  *	a functional block.
+  * @map: channel map for DE variants processing YUV separately (DE33)
++ * @uses_rcq: use the DE350 register configuration queue for commits
+  */
+ 
+ struct sun8i_mixer_cfg {
+@@ -204,6 +205,7 @@
+ 	unsigned int		de_type;
+ 	unsigned long		mod_rate;
+ 	unsigned int		map[6];
++	bool			uses_rcq;
+ };
+ 
+ struct sun8i_mixer {
+@@ -218,6 +220,8 @@
+ 
+ 	struct regmap			*top_regs;
+ 	struct regmap			*disp_regs;
++	struct device			*dev;
++	struct sun8i_de350_rcq		*rcq;
+ };
+ 
+ enum {
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -26,6 +26,7 @@
+ 
+ #include "sun4i_drv.h"
+ #include "sun8i_mixer.h"
++#include "sun8i_de350_rcq.h"
+ #include "sun8i_ui_layer.h"
+ #include "sun8i_vi_layer.h"
+ #include "sunxi_engine.h"
+@@ -309,6 +310,8 @@
+ 	if (mixer->cfg->de_type != SUN8I_MIXER_DE33)
+ 		regmap_write(engine->regs, SUN8I_MIXER_GLOBAL_DBUFF,
+ 			     SUN8I_MIXER_GLOBAL_DBUFF_ENABLE);
++	else if (mixer->cfg->uses_rcq)
++		sun8i_de350_rcq_commit(mixer);
+ }
+ 
+ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
+@@ -319,7 +322,7 @@
+ 	int plane_cnt = mixer->cfg->ui_num + mixer->cfg->vi_num;
+ 	enum drm_plane_type type;
+ 	unsigned int phy_index;
+-	int i;
++	int i, ret;
+ 
+ 	planes = devm_kcalloc(drm->dev, plane_cnt + 1, sizeof(*planes), GFP_KERNEL);
+ 	if (!planes)
+@@ -328,7 +331,7 @@
+ 	for (i = 0; i < mixer->cfg->vi_num; i++) {
+ 		struct sun8i_layer *layer;
+ 
+-		if (i == 0 && !mixer->cfg->ui_num)
++		if (i == 0 && (!mixer->cfg->ui_num || mixer->cfg->uses_rcq))
+ 			type = DRM_PLANE_TYPE_PRIMARY;
+ 		else
+ 			type = DRM_PLANE_TYPE_OVERLAY;
+@@ -353,7 +356,7 @@
+ 		unsigned int index = mixer->cfg->vi_num + i;
+ 		struct sun8i_layer *layer;
+ 
+-		if (i == 0)
++		if (i == 0 && !mixer->cfg->uses_rcq)
+ 			type = DRM_PLANE_TYPE_PRIMARY;
+ 		else
+ 			type = DRM_PLANE_TYPE_OVERLAY;
+@@ -372,6 +375,12 @@
+ 		}
+ 
+ 		planes[index] = &layer->plane;
++	}
++
++	if (mixer->cfg->uses_rcq) {
++		ret = sun8i_de350_rcq_init(mixer);
++		if (ret)
++			return ERR_PTR(ret);
+ 	}
+ 
+ 	return planes;
+@@ -523,7 +532,7 @@
+ 	 * Restrict the DMA mask so that the mixer won't be
+ 	 * allocated some memory that is too high.
+ 	 */
+-	ret = dma_set_mask(dev, DMA_BIT_MASK(32));
++	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+ 	if (ret) {
+ 		dev_err(dev, "Cannot do 32-bit DMA.\n");
+ 		return ret;
+@@ -532,6 +541,7 @@
+ 	mixer = devm_kzalloc(dev, sizeof(*mixer), GFP_KERNEL);
+ 	if (!mixer)
+ 		return -ENOMEM;
++	mixer->dev = dev;
+ 	dev_set_drvdata(dev, mixer);
+ 	mixer->engine.ops = &sun8i_engine_ops;
+ 	mixer->engine.node = dev->of_node;
