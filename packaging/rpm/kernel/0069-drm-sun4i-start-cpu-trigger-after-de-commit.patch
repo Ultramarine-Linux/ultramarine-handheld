@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: start A523 CPU trigger after DE commit
+
+The A523 single-master trigger must not start while DRM is still programming
+the DE layer. Keep the TCON CPU FIFO configured during mode_set_nofb, then
+start the trigger after the engine commit in atomic_flush, matching the BSP's
+DE-before-trigger ordering.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -396,12 +396,12 @@
+ 	regmap_write(tcon->regs, SUN4I_TCON_ECC_FIFO_REG,
+ 		     SUN4I_TCON_ECC_FIFO_EN);
+ 
++	/* Arm the FIFO now; start the trigger only after the DE commit. */
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_IF_REG,
+ 		     SUN4I_TCON0_CPU_IF_MODE_DSI |
+ 		     SUN4I_TCON0_CPU_IF_RD_FLAG |
+ 		     SUN4I_TCON0_CPU_IF_TRI_FIFO_FLUSH |
+-		     SUN4I_TCON0_CPU_IF_TRI_FIFO_EN |
+-		     SUN4I_TCON0_CPU_IF_TRI_EN);
++		     SUN4I_TCON0_CPU_IF_TRI_FIFO_EN);
+ 
+ 	/*
+ 	 * This looks suspicious, but it works...
+@@ -802,6 +802,14 @@
+ 
+ 	return IRQ_HANDLED;
+ }
++
++void sun4i_tcon_cpu_trigger_start(struct sun4i_tcon *tcon)
++{
++	regmap_update_bits(tcon->regs, SUN4I_TCON0_CPU_IF_REG,
++			   SUN4I_TCON0_CPU_IF_TRI_EN,
++			   SUN4I_TCON0_CPU_IF_TRI_EN);
++}
++EXPORT_SYMBOL(sun4i_tcon_cpu_trigger_start);
+ 
+ static int sun4i_tcon_init_clocks(struct device *dev,
+ 				  struct sun4i_tcon *tcon)
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.h
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.h
+@@ -294,6 +294,7 @@
+ struct drm_panel *sun4i_tcon_find_panel(struct device_node *node);
+ 
+ void sun4i_tcon_enable_vblank(struct sun4i_tcon *tcon, bool enable);
++void sun4i_tcon_cpu_trigger_start(struct sun4i_tcon *tcon);
+ void sun4i_tcon_mode_set(struct sun4i_tcon *tcon,
+ 			 const struct drm_encoder *encoder,
+ 			 const struct drm_display_mode *mode);
+--- a/drivers/gpu/drm/sun4i/sun4i_crtc.c
++++ b/drivers/gpu/drm/sun4i/sun4i_crtc.c
+@@ -88,10 +88,14 @@
+ {
+ 	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+ 	struct drm_pending_vblank_event *event = crtc->state->event;
++	struct drm_encoder *encoder;
+ 
+ 	DRM_DEBUG_DRIVER("Committing plane changes\n");
+ 
+ 	sunxi_engine_commit(scrtc->engine, crtc, state);
++	encoder = sun4i_crtc_get_encoder(crtc);
++	if (encoder && encoder->encoder_type == DRM_MODE_ENCODER_DSI)
++		sun4i_tcon_cpu_trigger_start(scrtc->tcon);
+ 
+ 	if (event) {
+ 		crtc->state->event = NULL;
+-- 
+2.43.0

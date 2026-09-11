@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: match BSP A523 TCON trigger fields
+
+Match the A523 vendor readback after the panel timing contract is corrected:
+TCON DCLK divider 1, TRI0 block spacing HT-active-40 (30 for this mode), and
+safe-period count pixel-clock*15/1000000 (930 at 62 MHz). Keep the change
+separate from the panel command blob and DSI caller ordering.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -361,19 +361,19 @@
+ 	/* TODO support normal CPU interface modes */
+ 	struct sun6i_dsi *dsi = encoder_to_sun6i_dsi(encoder);
+ 	struct mipi_dsi_device *device = dsi->device;
+ 	u8 bpp = mipi_dsi_pixel_format_to_bpp(device->format);
+ 	u8 lanes = device->lanes;
+ 	u32 block_space, start_delay;
+-	u32 tcon_div;
+ 
+ 	/*
+ 	 * dclk is required to run at 1/4 the DSI per-lane bit rate.
+ 	 */
+-	tcon->dclk_min_div = SUN6I_DSI_TCON_DIV;
+-	tcon->dclk_max_div = SUN6I_DSI_TCON_DIV;
++	/* BSP TCON DCLK divider is 1; the four phase gates are separate. */
++	tcon->dclk_min_div = 1;
++	tcon->dclk_max_div = 1;
+ 	clk_set_rate(tcon->dclk, mode->crtc_clock * 1000 * (bpp / lanes)
+ 						  / SUN6I_DSI_TCON_DIV);
+ 
+ 	/* Set the active resolution and the complete BSP timing set. */
+ 	regmap_write(tcon->regs, SUN4I_TCON0_BASIC0_REG,
+ 		     SUN4I_TCON0_BASIC0_X(mode->crtc_hdisplay) |
+@@ -411,17 +411,15 @@
+ 	/*
+ 	 * This looks suspicious, but it works...
+ 	 *
+ 	 * The datasheet says that this should be set higher than 20 *
+ 	 * pixel cycle, but it's not clear what a pixel cycle is.
+ 	 */
+-	/* The BSP uses the fixed 4:1 DSI/TCON transfer ratio. */
+-	tcon_div = SUN6I_DSI_TCON_DIV;
+-	block_space = mode->htotal * bpp / (tcon_div * lanes);
+-	if (block_space > mode->hdisplay + 40)
+-		block_space -= mode->hdisplay + 40;
++	/* BSP TRI0 field: HT - active - 40; 790 - 720 - 40 = 30. */
++	if (mode->htotal > mode->hdisplay + 40)
++		block_space = mode->htotal - mode->hdisplay - 40;
+ 	else
+ 		block_space = 1;
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI0_REG,
+ 		     SUN4I_TCON0_CPU_TRI0_BLOCK_SPACE(block_space) |
+ 		     SUN4I_TCON0_CPU_TRI0_BLOCK_SIZE(mode->hdisplay));
+@@ -431,21 +429,21 @@
+ 
+ 	/* BSP formula: 3 * HT / 8 - 1; this is 290 for HT=776. */
+ 	start_delay = (3 * mode->crtc_htotal / 8) - 1;
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI2_REG,
+ 		     SUN4I_TCON0_CPU_TRI2_TRANS_START_SET(10) |
+ 		     SUN4I_TCON0_CPU_TRI2_START_DELAY(start_delay));
+-	dev_info(tcon->dev, "A523 CPU trigger: CPU_IF=0x10410005 TRI0 space=%u size=%u TRI1 lines=%u TRI2 delay=%u\n",
++	dev_info(tcon->dev, "A523 CPU trigger: CPU_IF setup=0x10010005 TRI0 space=%u size=%u TRI1 lines=%u TRI2 delay=%u\n",
+ 		 block_space, mode->hdisplay, mode->vdisplay, start_delay);
+ 
+ 	/*
+ 	 * The Allwinner BSP has a comment that the period should be
+ 	 * the display clock * 15, but uses an hardcoded 3000...
+ 	 */
+ 	regmap_write(tcon->regs, SUN4I_TCON_SAFE_PERIOD_REG,
+-		     SUN4I_TCON_SAFE_PERIOD_NUM(3000) |
++		     SUN4I_TCON_SAFE_PERIOD_NUM(mode->crtc_clock * 15 / 1000) |
+ 		     SUN4I_TCON_SAFE_PERIOD_MODE(3));
+ 
+ 	/* Enable the output on the pins */
+ 	regmap_write(tcon->regs, SUN4I_TCON0_IO_TRI_REG,
+ 		     0xe0000000);
+ }
+-- 
+2.43.0

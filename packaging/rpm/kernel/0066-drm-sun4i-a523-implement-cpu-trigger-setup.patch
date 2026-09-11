@@ -1,0 +1,99 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: implement A523 single-DSI CPU trigger setup
+
+Reproduce the A523 BSP's single-master DSI trigger setup in the upstream TCON
+CPU path. The BSP uses the TCON LCD interface with DE as the source, a DSI
+CPU_IF mode, complete LCD timing registers, and fixed trigger arithmetic for
+the 4:1 DSI/TCON transfer ratio.
+
+This patch does not change DE routing, formatter programming, DSI clock rate,
+or DRM completion handling. Those remain separate hardware boundaries.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.h
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.h
+@@ -85,6 +85,7 @@
+ #define SUN4I_TCON0_CPU_IF_MODE_MASK			GENMASK(31, 28)
+ #define SUN4I_TCON0_CPU_IF_MODE_DSI			(1 << 28)
+ #define SUN4I_TCON0_CPU_IF_TRI_FIFO_FLUSH		BIT(16)
++#define SUN4I_TCON0_CPU_IF_RD_FLAG			BIT(22)
+ #define SUN4I_TCON0_CPU_IF_TRI_FIFO_EN			BIT(2)
+ #define SUN4I_TCON0_CPU_IF_TRI_EN			BIT(0)
+ 
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -369,23 +369,36 @@
+ 	clk_set_rate(tcon->dclk, mode->crtc_clock * 1000 * (bpp / lanes)
+ 						  / SUN6I_DSI_TCON_DIV);
+ 
+-	/* Set the resolution */
++	/* Set the active resolution and the complete BSP timing set. */
+ 	regmap_write(tcon->regs, SUN4I_TCON0_BASIC0_REG,
+ 		     SUN4I_TCON0_BASIC0_X(mode->crtc_hdisplay) |
+ 		     SUN4I_TCON0_BASIC0_Y(mode->crtc_vdisplay));
++	regmap_write(tcon->regs, SUN4I_TCON0_BASIC1_REG,
++		     SUN4I_TCON0_BASIC1_H_TOTAL(mode->crtc_htotal) |
++		     SUN4I_TCON0_BASIC1_H_BACKPORCH(mode->crtc_htotal - mode->crtc_hsync_start));
++	regmap_write(tcon->regs, SUN4I_TCON0_BASIC2_REG,
++		     SUN4I_TCON0_BASIC2_V_TOTAL(mode->crtc_vtotal * 2) |
++		     SUN4I_TCON0_BASIC2_V_BACKPORCH(mode->crtc_vtotal - mode->crtc_vsync_start));
++	regmap_write(tcon->regs, SUN4I_TCON0_BASIC3_REG,
++		     SUN4I_TCON0_BASIC3_H_SYNC(mode->crtc_hsync_end - mode->crtc_hsync_start) |
++		     SUN4I_TCON0_BASIC3_V_SYNC(mode->crtc_vsync_end - mode->crtc_vsync_start));
+ 
+ 	/* Set dithering if needed */
+ 	sun4i_tcon0_mode_set_dithering(tcon, sun4i_tcon_get_connector(encoder));
+ 
++	/* LCD_IF=HV/DE and LCD_SRC_SEL=DE; CPU_IF selects DSI below. */
+ 	regmap_update_bits(tcon->regs, SUN4I_TCON0_CTL_REG,
+-			   SUN4I_TCON0_CTL_IF_MASK,
+-			   SUN4I_TCON0_CTL_IF_8080);
++			   SUN4I_TCON0_CTL_IF_MASK |
++			   SUN4I_TCON0_CTL_SRC_SEL_MASK |
++			   SUN4I_TCON0_CTL_CLK_DELAY_MASK,
++			   SUN4I_TCON0_CTL_CLK_DELAY(2));
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON_ECC_FIFO_REG,
+ 		     SUN4I_TCON_ECC_FIFO_EN);
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_IF_REG,
+ 		     SUN4I_TCON0_CPU_IF_MODE_DSI |
++		     SUN4I_TCON0_CPU_IF_RD_FLAG |
+ 		     SUN4I_TCON0_CPU_IF_TRI_FIFO_FLUSH |
+ 		     SUN4I_TCON0_CPU_IF_TRI_FIFO_EN |
+ 		     SUN4I_TCON0_CPU_IF_TRI_EN);
+@@ -396,10 +409,13 @@
+ 	 * The datasheet says that this should be set higher than 20 *
+ 	 * pixel cycle, but it's not clear what a pixel cycle is.
+ 	 */
+-	regmap_read(tcon->regs, SUN4I_TCON0_DCLK_REG, &tcon_div);
+-	tcon_div &= GENMASK(6, 0);
++	/* The BSP uses the fixed 4:1 DSI/TCON transfer ratio. */
++	tcon_div = SUN6I_DSI_TCON_DIV;
+ 	block_space = mode->htotal * bpp / (tcon_div * lanes);
+-	block_space -= mode->hdisplay + 40;
++	if (block_space > mode->hdisplay + 40)
++		block_space -= mode->hdisplay + 40;
++	else
++		block_space = 1;
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI0_REG,
+ 		     SUN4I_TCON0_CPU_TRI0_BLOCK_SPACE(block_space) |
+@@ -408,9 +424,8 @@
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI1_REG,
+ 		     SUN4I_TCON0_CPU_TRI1_BLOCK_NUM(mode->vdisplay));
+ 
+-	start_delay = (mode->crtc_vtotal - mode->crtc_vdisplay - 10 - 1);
+-	start_delay = start_delay * mode->crtc_htotal * 149;
+-	start_delay = start_delay / (mode->crtc_clock / 1000) / 8;
++	/* BSP formula: 3 * HT / 8 - 1; this is 290 for HT=776. */
++	start_delay = (3 * mode->crtc_htotal / 8) - 1;
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI2_REG,
+ 		     SUN4I_TCON0_CPU_TRI2_TRANS_START_SET(10) |
+ 		     SUN4I_TCON0_CPU_TRI2_START_DELAY(start_delay));
+-- 
+2.43.0

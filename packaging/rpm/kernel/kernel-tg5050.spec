@@ -50,20 +50,27 @@ Patch1033: 0036-arm64-dts-tg5050-usb-pd-power-and-pins.patch
 Patch1034: 0037-arm64-dts-tg5050-disable-unused-etnaviv-npu-binding.patch
 Patch1035: 0038-drm-sunxi-sun55i-a523-de33-skip-legacy-sram-claim.patch
 Patch1036: 0039-arm64-dts-sun55i-a523-add-display-engine-node.patch
-Patch1037: 0040-drm-sun4i-a523-de35-rcq-backend-and-integration.patch
-Patch1038: 0041-drm-sun4i-tcon-log-a523-dsi-trigger-state.patch
+Patch1037: 0040-drm-sun4i-complete-a523-upstream-de33-integration.patch
 Patch1039: 0042-drm-sun6i-dsi-attach-panel-before-drm-master.patch
-Patch1040: 0043-drm-sun4i-tcon-log-enable-state.patch
-Patch1041: 0044-drm-sun4i-force-tcon-vblank-enable.patch
 Patch1042: 0045-drm-sun6i-dsi-a523-video-start-delay-one.patch
 Patch1043: 0046-drm-sun6i-dsi-a523-combine-hs-video-start.patch
-Patch1044: 0047-drm-sun6i-dsi-log-post-hs-state.patch
 Patch1045: 0048-arm64-dts-sun55i-a523-keep-display0-power-domain-on.patch
-Patch1046: 0049-drm-sun4i-a523-route-de-to-tcon-lcd1.patch
-Patch1047: 0050-drm-sun4i-a523-de-arm-prototype.patch
-Patch1048: 0051-drm-sun4i-a523-bootstrap-first-ahb-load.patch
-Patch1049: 0052-drm-sun4i-a523-configure-tcon-top-dsi-route.patch
-Patch1050: 0053-drm-sun4i-a523-use-continuous-tcon-for-dsi.patch
+Patch1051: 0054-drm-sun4i-a523-enable-lcd1-dsi-top-gate.patch
+Patch1052: 0055-drm-sun4i-dsi-prevent-burst-loop-delay-underflow.patch
+Patch1057: 0060-drm-sun4i-a523-enable-four-phase-tcon-dclk.patch
+Patch1061: 0065-drm-sun8i-a523-use-bsp-vch0-primary.patch
+Patch1062: 0066-drm-sun4i-a523-implement-cpu-trigger-setup.patch
+Patch1063: 0067-drm-sun4i-route-cpu-trigger-dsi-through-tcon-top.patch
+Patch1064: 0068-drm-sun4i-trace-a523-cpu-trigger-order.patch
+Patch1066: 0070-drm-sun4i-follow-bsp-tcon-dsi-open-order.patch
+Patch1067: 0071-drm-sun4i-match-bsp-cpu-dsi-fields.patch
+Patch1068: 0072-drm-panel-tg5050-match-vendor-dsi-contract.patch
+Patch1069: 0073-drm-sun4i-match-bsp-a523-tcon-trigger-fields.patch
+Patch1070: 0074-clk-sunxi-a523-match-bsp-de350-port-channel-mux.patch
+Patch1071: 0075-clk-sunxi-a523-select-tcon1-and-de-buffer-depth.patch
+
+
+
 %global buildid .tg5050
 %global krel 7.2.0-tg5050
 %global debug_package %{nil}
@@ -149,20 +156,27 @@ printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >
 %patch 1035 -p1
 %patch 1036 -p1
 %patch 1037 -p1
-%patch 1038 -p1
 %patch 1039 -p1
-%patch 1040 -p1
-%patch 1041 -p1
 %patch 1042 -p1
 %patch 1043 -p1
-%patch 1044 -p1
 %patch 1045 -p1
-%patch 1046 -p1
-%patch 1047 -p1
-%patch 1048 -p1
-%patch 1049 -p1
-%patch 1050 -p1
-%global make %{__make} %{_make_output_sync} %{?_smp_mflags} %{_make_verbose} CC="$CC" CXX="$CXX" HOSTCC="${HOSTCC:-gcc}" HOSTCXX="${HOSTCXX:-g++}" CROSS_COMPILE="${CROSS_COMPILE-}"
+%patch 1051 -p1
+%patch 1052 -p1
+%patch 1057 -p1
+%patch 1061 -p1
+%patch 1062 -p1
+%patch 1063 -p1
+%patch 1064 -p1
+%patch 1066 -p1
+%patch 1067 -p1
+%patch 1068 -p1
+%patch 1069 -p1
+%patch 1070 -p1
+%patch 1071 -p1
+
+
+
+%global make %{__make} %{_make_output_sync} %{?_smp_mflags} %{?_make_verbose} CC="$CC" CXX="$CXX" HOSTCC="${HOSTCC:-gcc}" HOSTCXX="${HOSTCXX:-g++}" CROSS_COMPILE="${CROSS_COMPILE-}"
 %build
 export ARCH=arm64
 export KBUILD_BUILD_USER=ultramarine

@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 11 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: complete A523 upstream DE33 integration
+
+Complete the A523 extension of the upstream DE33 pipeline. Add dedicated
+bus, display-engine and DE clock compatibles, use the DE350 six-channel
+PORT2CHN mapping, expose the full layer aperture, and keep the mixer DT
+at the three resources consumed by the upstream driver.
+
+The A523 DE350 channel table is {0,1,2,6,7,8}; unlike the inherited H616
+four-channel mapping 0x0000a980, its matching PORT2CHN value is
+0x00a98210.
+
+diff --git a/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml b/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
+index 232252e..f069e20 100644
+--- a/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
++++ b/Documentation/devicetree/bindings/bus/allwinner,sun50i-a64-de2.yaml
+@@ -26,6 +26,10 @@ properties:
+       - items:
+           - const: allwinner,sun50i-h6-de3
+           - const: allwinner,sun50i-a64-de2
++      - items:
++          - const: allwinner,sun55i-a523-de33
++          - const: allwinner,sun50i-h616-de33
++          - const: allwinner,sun50i-a64-de2
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/clock/allwinner,sun8i-a83t-de2-clk.yaml b/Documentation/devicetree/bindings/clock/allwinner,sun8i-a83t-de2-clk.yaml
+index 7fcd55d..98df9c4 100644
+--- a/Documentation/devicetree/bindings/clock/allwinner,sun8i-a83t-de2-clk.yaml
++++ b/Documentation/devicetree/bindings/clock/allwinner,sun8i-a83t-de2-clk.yaml
+@@ -26,6 +26,7 @@ properties:
+       - const: allwinner,sun50i-h5-de2-clk
+       - const: allwinner,sun50i-h6-de3-clk
+       - const: allwinner,sun50i-h616-de33-clk
++      - const: allwinner,sun55i-a523-de33-clk
+       - items:
+           - const: allwinner,sun8i-r40-de2-clk
+           - const: allwinner,sun8i-h3-de2-clk
+diff --git a/Documentation/devicetree/bindings/display/allwinner,sun4i-a10-display-engine.yaml b/Documentation/devicetree/bindings/display/allwinner,sun4i-a10-display-engine.yaml
+index e6088f3..176c852 100644
+--- a/Documentation/devicetree/bindings/display/allwinner,sun4i-a10-display-engine.yaml
++++ b/Documentation/devicetree/bindings/display/allwinner,sun4i-a10-display-engine.yaml
+@@ -65,6 +65,7 @@ properties:
+       - allwinner,sun20i-d1-display-engine
+       - allwinner,sun50i-a64-display-engine
+       - allwinner,sun50i-h6-display-engine
++      - allwinner,sun55i-a523-display-engine
+ 
+   allwinner,pipelines:
+     $ref: /schemas/types.yaml#/definitions/phandle-array
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index 208f918..66c5628 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -778,7 +778,7 @@
+ 			status = "disabled";
+ 
+ 			display_clocks: clock-controller@8000 {
+-				compatible = "allwinner,sun50i-h616-de33-clk";
++				compatible = "allwinner,sun55i-a523-de33-clk";
+ 				reg = <0x8000 0x100>;
+ 				clocks = <&ccu CLK_DE>, <&ccu CLK_BUS_DE>;
+ 				clock-names = "mod", "bus";
+@@ -790,11 +790,10 @@
+ 
+ 			mixer0: mixer@100000 {
+ 				compatible = "allwinner,sun55i-a523-de33-mixer-0";
+-				reg = <0x100000 0x100000>,
++				reg = <0x100000 0x120000>,
+ 				      <0x8100 0x40>,
+-				      <0x280000 0x20000>,
+-				      <0x8000 0x60>;
+-				reg-names = "engine", "top", "display", "detop";
++				      <0x280000 0x20000>;
++				reg-names = "layers", "top", "display";
+ 				clocks = <&display_clocks CLK_BUS_MIXER0>,
+ 					 <&display_clocks CLK_MIXER0>;
+ 				clock-names = "bus", "mod";
+@@ -817,7 +816,7 @@
+ 		};
+ 
+ 		de_engine: display-engine {
+-			compatible = "allwinner,sun50i-h6-display-engine";
++			compatible = "allwinner,sun55i-a523-display-engine";
+ 			allwinner,pipelines = <&mixer0>;
+ 			status = "okay";
+ 		};
+diff --git a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+index a6cd0f9..2e7166e 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+@@ -307,7 +307,11 @@ static int sunxi_de2_clk_probe(struct platform_device *pdev)
+ 	 * during initialisation.
+ 	 */
+ 	if (of_device_is_compatible(pdev->dev.of_node,
+-				    "allwinner,sun50i-h616-de33-clk")) {
++				    "allwinner,sun55i-a523-de33-clk")) {
++		writel(0, reg + 0x24);
++		writel(0x00a98210, reg + 0x28);
++	} else if (of_device_is_compatible(pdev->dev.of_node,
++					   "allwinner,sun50i-h616-de33-clk")) {
+ 		writel(0, reg + 0x24);
+ 		writel(0x0000a980, reg + 0x28);
+ 	}
+@@ -356,6 +360,10 @@ static const struct of_device_id sunxi_de2_clk_ids[] = {
+ 		.compatible = "allwinner,sun50i-h6-de3-clk",
+ 		.data = &sun50i_h5_de2_clk_desc,
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-de33-clk",
++		.data = &sun50i_h616_de33_clk_desc,
++	},
+ 	{
+ 		.compatible = "allwinner,sun50i-h616-de33-clk",
+ 		.data = &sun50i_h616_de33_clk_desc,
+diff --git a/drivers/gpu/drm/sun4i/sun4i_drv.c b/drivers/gpu/drm/sun4i/sun4i_drv.c
+index 8a409ee..408dac5 100644
+--- a/drivers/gpu/drm/sun4i/sun4i_drv.c
++++ b/drivers/gpu/drm/sun4i/sun4i_drv.c
+@@ -436,6 +436,7 @@ static const struct of_device_id sun4i_drv_of_table[] = {
+ 	{ .compatible = "allwinner,sun9i-a80-display-engine" },
+ 	{ .compatible = "allwinner,sun20i-d1-display-engine" },
+ 	{ .compatible = "allwinner,sun50i-a64-display-engine" },
++	{ .compatible = "allwinner,sun55i-a523-display-engine" },
+ 	{ .compatible = "allwinner,sun50i-h6-display-engine" },
+ 	{ }
+ };
+diff --git a/drivers/gpu/drm/sun4i/sun8i_mixer.c b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+index 38e63ba..83f332a 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_mixer.c
++++ b/drivers/gpu/drm/sun4i/sun8i_mixer.c
+@@ -423,7 +423,7 @@ static const struct regmap_config sun8i_mixer_regmap_config = {
+ 	.reg_bits	= 32,
+ 	.val_bits	= 32,
+ 	.reg_stride	= 4,
+-	.max_register	= 0xffffc, /* guessed */
++	.max_register	= 0x11fffc,
+ };
+ 
+ static const struct regmap_config sun8i_top_regmap_config = {

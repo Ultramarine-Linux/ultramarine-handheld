@@ -1,0 +1,113 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 11 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: use A523 four-phase TCON DCLK gate
+
+The sun55iw3 BSP enables all four TCON-LCD DCLK gate phases before enabling
+TCON0 for single-DSI output. Mainline only toggles bit 31 and enables TCON0
+first. Add an A523 quirk for the four-bit gate and perform the clock enable
+before the TCON0 enable for that variant.
+
+diff --git a/drivers/gpu/drm/sun4i/sun4i_tcon.c b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+index 19c4ea2..27892de 100644
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -89,10 +89,14 @@ static void sun4i_tcon_channel_set_status(struct sun4i_tcon *tcon, int channel,
+ 	switch (channel) {
+ 	case 0:
+ 		WARN_ON(!tcon->quirks->has_channel_0);
++		clk = tcon->dclk;
++		if (enabled && tcon->quirks->dclk_four_phase) {
++			clk_prepare_enable(clk);
++			clk_rate_exclusive_get(clk);
++		}
+ 		regmap_update_bits(tcon->regs, SUN4I_TCON0_CTL_REG,
+ 				   SUN4I_TCON0_CTL_TCON_ENABLE,
+ 				   enabled ? SUN4I_TCON0_CTL_TCON_ENABLE : 0);
+-		clk = tcon->dclk;
+ 		break;
+ 	case 1:
+ 		WARN_ON(!tcon->quirks->has_channel_1);
+@@ -107,8 +111,10 @@ static void sun4i_tcon_channel_set_status(struct sun4i_tcon *tcon, int channel,
+ 	}
+ 
+ 	if (enabled) {
+-		clk_prepare_enable(clk);
+-		clk_rate_exclusive_get(clk);
++		if (!(channel == 0 && tcon->quirks->dclk_four_phase)) {
++			clk_prepare_enable(clk);
++			clk_rate_exclusive_get(clk);
++		}
+ 	} else {
+ 		clk_rate_exclusive_put(clk);
+ 		clk_disable_unprepare(clk);
+@@ -1571,6 +1577,7 @@ static const struct sun4i_tcon_quirks sun20i_d1_lcd_quirks = {
+  */
+ static const struct sun4i_tcon_quirks sun55i_a523_lcd_quirks = {
+ 	.has_channel_0		= true,
++	.dclk_four_phase	= true,
+ 	.dclk_min_div		= 1,
+ 	.set_mux		= sun8i_r40_tcon_tv_set_mux,
+ };
+diff --git a/drivers/gpu/drm/sun4i/sun4i_tcon.h b/drivers/gpu/drm/sun4i/sun4i_tcon.h
+index fa23aa2..f040d17 100644
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.h
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.h
+@@ -243,6 +243,7 @@ struct sun4i_tcon_quirks {
+ 	bool    needs_edp_reset; /* a80 edp reset needed for tcon0 access */
+ 	bool	supports_lvds;   /* Does the TCON support an LVDS output? */
+ 	bool	polarity_in_ch0; /* some tcon1 channels have polarity bits in tcon0 pol register */
++	bool	dclk_four_phase; /* A523 uses all four TCON0 DCLK gate phases */
+ 	u8	dclk_min_div;	/* minimum divider for TCON0 DCLK */
+ 
+ 	/* callback to handle tcon muxing options */
+diff --git a/drivers/gpu/drm/sun4i/sun4i_tcon_dclk.c b/drivers/gpu/drm/sun4i/sun4i_tcon_dclk.c
+index 4afb12b..f30d23f 100644
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon_dclk.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon_dclk.c
+@@ -23,31 +23,41 @@ static inline struct sun4i_dclk *hw_to_dclk(struct clk_hw *hw)
+ 	return container_of(hw, struct sun4i_dclk, hw);
+ }
+ 
++static u32 sun4i_dclk_gate_mask(struct sun4i_dclk *dclk)
++{
++	if (dclk->tcon->quirks->dclk_four_phase)
++		return GENMASK(31, 28);
++
++	return BIT(SUN4I_TCON0_DCLK_GATE_BIT);
++}
++
+ static void sun4i_dclk_disable(struct clk_hw *hw)
+ {
+ 	struct sun4i_dclk *dclk = hw_to_dclk(hw);
++	u32 mask = sun4i_dclk_gate_mask(dclk);
+ 
+ 	regmap_update_bits(dclk->regmap, SUN4I_TCON0_DCLK_REG,
+-			   BIT(SUN4I_TCON0_DCLK_GATE_BIT), 0);
++			   mask, 0);
+ }
+ 
+ static int sun4i_dclk_enable(struct clk_hw *hw)
+ {
+ 	struct sun4i_dclk *dclk = hw_to_dclk(hw);
++	u32 mask = sun4i_dclk_gate_mask(dclk);
+ 
+ 	return regmap_update_bits(dclk->regmap, SUN4I_TCON0_DCLK_REG,
+-				  BIT(SUN4I_TCON0_DCLK_GATE_BIT),
+-				  BIT(SUN4I_TCON0_DCLK_GATE_BIT));
++				  mask, mask);
+ }
+ 
+ static int sun4i_dclk_is_enabled(struct clk_hw *hw)
+ {
+ 	struct sun4i_dclk *dclk = hw_to_dclk(hw);
++	u32 mask = sun4i_dclk_gate_mask(dclk);
+ 	u32 val;
+ 
+ 	regmap_read(dclk->regmap, SUN4I_TCON0_DCLK_REG, &val);
+ 
+-	return val & BIT(SUN4I_TCON0_DCLK_GATE_BIT);
++	return (val & mask) == mask;
+ }
+ 
+ static unsigned long sun4i_dclk_recalc_rate(struct clk_hw *hw,

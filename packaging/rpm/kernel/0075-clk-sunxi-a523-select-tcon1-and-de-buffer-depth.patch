@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] clk: sunxi: a523: select TCON1 and DE buffer depth
+
+The A523 DE-top block is initialized by the DE clock-controller at
+0x05008000.  The working BSP selects TCON1 for display engine 0 in the low
+nibble of DE2TCON_MUX and programs the DE buffer depth to 0x6000.  Mainline
+left the reset/default values (DE0 -> TCON0 and 0x800), even after the mixer
+was changed to use the VCH0 primary path.
+
+Change only the DE0 selector nibble so the other output selections remain
+owned by the existing initialization, and set the BSP buffer-depth value.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+ drivers/clk/sunxi-ng/ccu-sun8i-de2.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+@@ -257,6 +257,7 @@
+ 	void __iomem *reg;
+ 	const struct sunxi_ccu_desc *ccu_desc;
+ 	int ret;
++	u32 de2tcon_mux;
+ 
+ 	ccu_desc = of_device_get_match_data(&pdev->dev);
+ 	if (!ccu_desc)
+@@ -310,6 +311,11 @@
+ 				    "allwinner,sun55i-a523-de33-clk")) {
+ 		writel(0, reg + 0x24);
+ 		writel(0x000a9810, reg + 0x28);
++		de2tcon_mux = readl(reg + 0x10);
++		de2tcon_mux &= ~0xf;
++		de2tcon_mux |= 1;
++		writel(de2tcon_mux, reg + 0x10);
++		writel(0x6000, reg + 0x50);
+ 	} else if (of_device_is_compatible(pdev->dev.of_node,
+ 					   "allwinner,sun50i-h616-de33-clk")) {
+ 		writel(0, reg + 0x24);
+-- 
+2.43.0

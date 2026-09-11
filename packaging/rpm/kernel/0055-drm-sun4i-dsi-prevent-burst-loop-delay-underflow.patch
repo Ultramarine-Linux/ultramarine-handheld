@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 11 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: dsi: prevent burst loop delay underflow
+
+The burst-mode instruction-loop delay is stored in a u16 before being
+reduced to the hardware field. If the horizontal porch is too short for
+the fixed 50-cycle subtraction, the value wraps. The TG5050's 720x1280
+mode calculates -34 and consequently programs 4062 into the 12-bit N1
+field, which was confirmed by live register readback.
+
+Clamp the delay at zero rather than turning a short porch into an almost
+maximum-length delay.
+
+diff --git a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+index c4d0762..30baa75 100644
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -459,9 +459,10 @@ static void sun6i_dsi_setup_inst_loop(struct sun6i_dsi *dsi,
+ 
+ 	if (device->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+ 		u32 hsync_porch = (mode->htotal - mode->hdisplay) * 150;
++		u32 clocks;
+ 
+-		delay = (hsync_porch / ((mode->clock / 1000) * 8));
+-		delay -= 50;
++		clocks = hsync_porch / ((mode->clock / 1000) * 8);
++		delay = clocks > 50 ? clocks - 50 : 0;
+ 	}
+ 
+ 	regmap_write(dsi->regs, SUN6I_DSI_INST_LOOP_SEL_REG,

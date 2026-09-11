@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: match BSP CPU/DSI interface fields
+
+The Radxa Allwinner BSP's tcon_dsi_cfg() selects LCD_IF=1 for single-link
+CPU/DSI mode and programs CPU_IF with mode, FIFO enable, flush, and TRI_EN.
+The live 0x10410005 value contains a readback/status bit; it must not be
+forced into the setup value. Match the BSP's programmed fields while
+retaining the post-DE DSI start ordering.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -388,25 +388,25 @@
+ 		     SUN4I_TCON0_BASIC3_H_SYNC(mode->crtc_hsync_end - mode->crtc_hsync_start) |
+ 		     SUN4I_TCON0_BASIC3_V_SYNC(mode->crtc_vsync_end - mode->crtc_vsync_start));
+ 
+ 	/* Set dithering if needed */
+ 	sun4i_tcon0_mode_set_dithering(tcon, sun4i_tcon_get_connector(encoder));
+ 
+-	/* LCD_IF=HV/DE and LCD_SRC_SEL=DE; CPU_IF selects DSI below. */
++	/* BSP CPU/DSI mode: LCD_IF=1, DE source, and START_DLY=2. */
+ 	regmap_update_bits(tcon->regs, SUN4I_TCON0_CTL_REG,
+ 			   SUN4I_TCON0_CTL_IF_MASK |
+ 			   SUN4I_TCON0_CTL_SRC_SEL_MASK |
+ 			   SUN4I_TCON0_CTL_CLK_DELAY_MASK,
++			   SUN4I_TCON0_CTL_IF_8080 |
+ 			   SUN4I_TCON0_CTL_CLK_DELAY(2));
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON_ECC_FIFO_REG,
+ 		     SUN4I_TCON_ECC_FIFO_EN);
+ 
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_IF_REG,
+ 		     SUN4I_TCON0_CPU_IF_MODE_DSI |
+-		     SUN4I_TCON0_CPU_IF_RD_FLAG |
+ 		     SUN4I_TCON0_CPU_IF_TRI_FIFO_FLUSH |
+ 		     SUN4I_TCON0_CPU_IF_TRI_FIFO_EN |
+ 		     SUN4I_TCON0_CPU_IF_TRI_EN);
+ 
+ 	/*
+ 	 * This looks suspicious, but it works...
+
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.h
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.h
+@@ -82,13 +82,12 @@
+ #define SUN4I_TCON0_HV_IF_REG			0x58
+ 
+ #define SUN4I_TCON0_CPU_IF_REG			0x60
+ #define SUN4I_TCON0_CPU_IF_MODE_MASK			GENMASK(31, 28)
+ #define SUN4I_TCON0_CPU_IF_MODE_DSI			(1 << 28)
+ #define SUN4I_TCON0_CPU_IF_TRI_FIFO_FLUSH		BIT(16)
+-#define SUN4I_TCON0_CPU_IF_RD_FLAG			BIT(22)
+ #define SUN4I_TCON0_CPU_IF_TRI_FIFO_EN			BIT(2)
+ #define SUN4I_TCON0_CPU_IF_TRI_EN			BIT(0)
+ 
+ #define SUN4I_TCON0_CPU_WR_REG			0x64
+ #define SUN4I_TCON0_CPU_RD0_REG			0x68
+ #define SUN4I_TCON0_CPU_RDA_REG			0x6c
+
+-- 
+2.43.0

@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: route CPU-trigger DSI through TCON-TOP
+
+The A523 CPU-trigger DSI path must select the DE-to-LCD1 route before the
+single-master trigger starts. Keep this route selection specific to the DSI
+CPU path; it is not a generic continuous-TCON experiment.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+ drivers/gpu/drm/sun4i/sun4i_tcon.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -738,6 +738,7 @@
+ 	case DRM_MODE_ENCODER_DSI:
+ 		/* DSI is tied to special case of CPU interface */
+ 		sun4i_tcon0_mode_set_cpu(tcon, encoder, mode);
++		sun4i_tcon_set_mux(tcon, 0, encoder);
+ 		break;
+ 	case DRM_MODE_ENCODER_LVDS:
+ 		sun4i_tcon0_mode_set_lvds(tcon, encoder, mode);
+-- 
+2.43.0

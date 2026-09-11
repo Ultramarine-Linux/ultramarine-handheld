@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: trace A523 CPU-trigger enable ordering
+
+Temporary bring-up instrumentation for the A523 single-master DSI path. It
+records the TCON CPU setup boundary, trigger values, TCON status transition,
+and DSI HS start. This is diagnostic only and must not remain in the release
+series.
+
+---
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -219,6 +219,7 @@
+ 	if (is_lvds && !enabled)
+ 		sun4i_tcon_lvds_set_status(tcon, encoder, false);
+ 
++	dev_info(tcon->dev, "A523 CPU trigger: TCON status enabled=%d\n", enabled);
+ 	regmap_update_bits(tcon->regs, SUN4I_TCON_GCTL_REG,
+ 			   SUN4I_TCON_GCTL_TCON_ENABLE,
+ 			   enabled ? SUN4I_TCON_GCTL_TCON_ENABLE : 0);
+@@ -353,6 +354,10 @@
+ 				     const struct drm_encoder *encoder,
+ 				     const struct drm_display_mode *mode)
+ {
++	dev_info(tcon->dev, "A523 CPU trigger: enter mode_set %ux%u htotal=%u vtotal=%u\n",
++		 mode->crtc_hdisplay, mode->crtc_vdisplay,
++		 mode->crtc_htotal, mode->crtc_vtotal);
++
+ 	/* TODO support normal CPU interface modes */
+ 	struct sun6i_dsi *dsi = encoder_to_sun6i_dsi(encoder);
+ 	struct mipi_dsi_device *device = dsi->device;
+@@ -429,6 +434,8 @@
+ 	regmap_write(tcon->regs, SUN4I_TCON0_CPU_TRI2_REG,
+ 		     SUN4I_TCON0_CPU_TRI2_TRANS_START_SET(10) |
+ 		     SUN4I_TCON0_CPU_TRI2_START_DELAY(start_delay));
++	dev_info(tcon->dev, "A523 CPU trigger: CPU_IF=0x10410005 TRI0 space=%u size=%u TRI1 lines=%u TRI2 delay=%u\n",
++		 block_space, mode->hdisplay, mode->vdisplay, start_delay);
+ 
+ 	/*
+ 	 * The Allwinner BSP has a comment that the period should be
+@@ -737,8 +744,11 @@
+ 	switch (encoder->encoder_type) {
+ 	case DRM_MODE_ENCODER_DSI:
+ 		/* DSI is tied to special case of CPU interface */
++		dev_info(tcon->dev, "A523 CPU trigger: mode_set enter\n");
+ 		sun4i_tcon0_mode_set_cpu(tcon, encoder, mode);
++		dev_info(tcon->dev, "A523 CPU trigger: mode_set_cpu returned\n");
+ 		sun4i_tcon_set_mux(tcon, 0, encoder);
++		dev_info(tcon->dev, "A523 CPU trigger: mux returned\n");
+ 		break;
+ 	case DRM_MODE_ENCODER_LVDS:
+ 		sun4i_tcon0_mode_set_lvds(tcon, encoder, mode);
+--- a/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
++++ b/drivers/gpu/drm/sun4i/sun6i_mipi_dsi.c
+@@ -731,6 +731,7 @@
+ 	int err;
+ 
+ 	DRM_DEBUG_DRIVER("Enabling DSI output\n");
++	dev_info(dsi->dev, "A523 CPU trigger: DSI enable enter\n");
+ 
+ 	err = regulator_enable(dsi->regulator);
+ 	if (err)
+@@ -794,8 +795,9 @@
+ 	if (dsi->panel)
+ 		drm_panel_enable(dsi->panel);
+ 
+-	/* HSC start now chains directly into the continuous HSD sequence. */
++	dev_info(dsi->dev, "A523 CPU trigger: DSI panel enabled, starting HSC\n");
+ 	sun6i_dsi_start(dsi, DSI_START_HSC);
++	dev_info(dsi->dev, "A523 CPU trigger: DSI enable exit\n");
+ }
+ 
+ static void sun6i_dsi_encoder_disable(struct drm_encoder *encoder)
+-- 
+2.43.0

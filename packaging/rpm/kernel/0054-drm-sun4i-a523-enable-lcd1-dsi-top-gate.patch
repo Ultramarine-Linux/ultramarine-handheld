@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Fri, 11 Sep 2026 00:00:00 +0700
+Subject: [PATCH] drm: sun4i: a523: enable the LCD1 to DSI1 top gate
+
+DISPLAY0_TOP has separate gates for the TCON-LCD0 to DSI0 and
+TCON-LCD1 to DSI1 datapaths. The H6-compatible TCON-TOP support only
+programs the DE-to-TCON port selector, leaving both A523 DSI gates off.
+Live TG5050 readback confirmed PORT_SEL=1 while GATE_SRC=0.
+
+Add an A523 TCON-TOP compatible and program the gate matching the TCON
+selected for a DSI encoder. Preserve unrelated TV/HDMI fields in the
+shared register. The gate layout follows the sun55iw3 v35x BSP: bit 16
+gates DSI0 and bit 17 gates DSI1.
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index f595b9c..208f918 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -823,7 +823,8 @@
+ 		};
+ 
+ 		tcon_top: tcon-top@5500000 {
+-			compatible = "allwinner,sun50i-h6-tcon-top";
++			compatible = "allwinner,sun55i-a523-tcon-top",
++				     "allwinner,sun50i-h6-tcon-top";
+ 			reg = <0x05500000 0x1000>;
+ 			power-domains = <&pck600 PD_VO0>;
+ 			clocks = <&ccu CLK_BUS_DISPLAY0_TOP>,
+diff --git a/drivers/gpu/drm/sun4i/sun4i_tcon.c b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+index 778d775..8d36620 100644
+--- a/drivers/gpu/drm/sun4i/sun4i_tcon.c
++++ b/drivers/gpu/drm/sun4i/sun4i_tcon.c
+@@ -1557,6 +1557,15 @@ static int sun8i_r40_tcon_tv_set_mux(struct sun4i_tcon *tcon,
+ 		}
+ 	}
+ 
++	if (IS_ENABLED(CONFIG_DRM_SUN8I_TCON_TOP) &&
++	    encoder->encoder_type == DRM_MODE_ENCODER_DSI) {
++		ret = sun8i_tcon_top_set_dsi_src(&pdev->dev, id);
++		if (ret) {
++			put_device(&pdev->dev);
++			return ret;
++		}
++	}
++
+ 	if (IS_ENABLED(CONFIG_DRM_SUN8I_TCON_TOP)) {
+ 		ret = sun8i_tcon_top_de_config(&pdev->dev, tcon->id, id);
+ 		if (ret) {
+diff --git a/drivers/gpu/drm/sun4i/sun8i_tcon_top.c b/drivers/gpu/drm/sun4i/sun8i_tcon_top.c
+index 34920cd..76d83d5 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_tcon_top.c
++++ b/drivers/gpu/drm/sun4i/sun8i_tcon_top.c
+@@ -18,6 +18,7 @@
+ struct sun8i_tcon_top_quirks {
+ 	bool has_tcon_tv1;
+ 	bool has_dsi;
++	bool has_a523_dsi_gates;
+ };
+ 
+ static bool sun8i_tcon_top_node_is_tcon_top(struct device_node *node)
+@@ -54,6 +55,32 @@ int sun8i_tcon_top_set_hdmi_src(struct device *dev, int tcon)
+ }
+ EXPORT_SYMBOL(sun8i_tcon_top_set_hdmi_src);
+ 
++int sun8i_tcon_top_set_dsi_src(struct device *dev, int tcon)
++{
++	struct sun8i_tcon_top *tcon_top = dev_get_drvdata(dev);
++	const struct sun8i_tcon_top_quirks *quirks;
++	unsigned long flags;
++	u32 reg;
++
++	quirks = of_device_get_match_data(dev);
++	if (!quirks || !quirks->has_a523_dsi_gates)
++		return 0;
++	if (tcon < 0 || tcon > 1)
++		return -EINVAL;
++
++	spin_lock_irqsave(&tcon_top->reg_lock, flags);
++	reg = readl(tcon_top->regs + TCON_TOP_GATE_SRC_REG);
++	reg &= ~TCON_TOP_TCON_DSI_GATE_MSK;
++	reg |= BIT(TCON_TOP_TCON_DSI0_GATE + tcon);
++	writel(reg, tcon_top->regs + TCON_TOP_GATE_SRC_REG);
++	dev_info(dev, "TCON-TOP DSI route tcon=%d GATE_SRC=%#x\n",
++		 tcon, readl(tcon_top->regs + TCON_TOP_GATE_SRC_REG));
++	spin_unlock_irqrestore(&tcon_top->reg_lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL(sun8i_tcon_top_set_dsi_src);
++
+ int sun8i_tcon_top_de_config(struct device *dev, int mixer, int tcon)
+ {
+ 	struct sun8i_tcon_top *tcon_top = dev_get_drvdata(dev);
+@@ -276,6 +303,10 @@ static const struct sun8i_tcon_top_quirks sun20i_d1_tcon_top_quirks = {
+ 	.has_dsi	= true,
+ };
+ 
++static const struct sun8i_tcon_top_quirks sun55i_a523_tcon_top_quirks = {
++	.has_a523_dsi_gates = true,
++};
++
+ static const struct sun8i_tcon_top_quirks sun50i_h6_tcon_top_quirks = {
+ 	/* Nothing special */
+ };
+@@ -290,6 +321,10 @@ const struct of_device_id sun8i_tcon_top_of_table[] = {
+ 		.compatible = "allwinner,sun20i-d1-tcon-top",
+ 		.data = &sun20i_d1_tcon_top_quirks
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-tcon-top",
++		.data = &sun55i_a523_tcon_top_quirks
++	},
+ 	{
+ 		.compatible = "allwinner,sun50i-h6-tcon-top",
+ 		.data = &sun50i_h6_tcon_top_quirks
+diff --git a/drivers/gpu/drm/sun4i/sun8i_tcon_top.h b/drivers/gpu/drm/sun4i/sun8i_tcon_top.h
+index 0390584..29813b2 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_tcon_top.h
++++ b/drivers/gpu/drm/sun4i/sun8i_tcon_top.h
+@@ -19,7 +19,10 @@
+ #define TCON_TOP_HDMI_SRC_MSK			GENMASK(29, 28)
+ #define TCON_TOP_TCON_TV1_GATE			24
+ #define TCON_TOP_TCON_TV0_GATE			20
+-#define TCON_TOP_TCON_DSI_GATE			16
++#define TCON_TOP_TCON_DSI0_GATE			16
++#define TCON_TOP_TCON_DSI1_GATE			17
++#define TCON_TOP_TCON_DSI_GATE_MSK		GENMASK(17, 16)
++#define TCON_TOP_TCON_DSI_GATE			TCON_TOP_TCON_DSI0_GATE
+ 
+ #define CLK_NUM					3
+ 
+@@ -39,6 +42,7 @@ struct sun8i_tcon_top {
+ extern const struct of_device_id sun8i_tcon_top_of_table[];
+ 
+ int sun8i_tcon_top_set_hdmi_src(struct device *dev, int tcon);
++int sun8i_tcon_top_set_dsi_src(struct device *dev, int tcon);
+ int sun8i_tcon_top_de_config(struct device *dev, int mixer, int tcon);
+ 
+ #endif /* _SUN8I_TCON_TOP_H_ */

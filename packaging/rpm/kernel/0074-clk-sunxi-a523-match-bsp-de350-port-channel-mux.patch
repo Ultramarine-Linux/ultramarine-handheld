@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@cappuchino.xyz>
+Date: Sat, 12 Sep 2026 00:00:00 +0700
+Subject: [PATCH] clk: sunxi: a523: match BSP DE350 port-channel mux
+
+The A523 DE clock-controller owns the DE-top register block at 0x05008000,
+including PORT2CHN_MUX at offset 0x28.  The earlier DE33 integration used the
+inherited six-channel value 0x00a98210, but the working A523 BSP readback is
+0x000a9810.  Mainline can program the VCH0 overlay and blender while leaving
+this mux unchanged, which routes the output away from the VCH0 primary path.
+
+Keep the correction in the existing DE clock-controller initialization rather
+than mapping the already-claimed 0x05008000 range a second time from DRM.
+
+Signed-off-by: Cappy Ishihara <cappy@cappuchino.xyz>
+
+---
+ drivers/clk/sunxi-ng/ccu-sun8i-de2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+@@ -309,7 +309,7 @@ static int sunxi_de2_clk_probe(struct platform_device *pdev)
+ 	if (of_device_is_compatible(pdev->dev.of_node,
+ 				    "allwinner,sun55i-a523-de33-clk")) {
+ 		writel(0, reg + 0x24);
+-		writel(0x00a98210, reg + 0x28);
++		writel(0x000a9810, reg + 0x28);
+ 	} else if (of_device_is_compatible(pdev->dev.of_node,
+ 					   "allwinner,sun50i-h616-de33-clk")) {
+ 		writel(0, reg + 0x24);
+-- 
+2.43.0
