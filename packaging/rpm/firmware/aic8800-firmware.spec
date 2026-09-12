@@ -1,6 +1,6 @@
 Name:           aic8800-firmware
 Version:        2024.06.25
-Release:        3.tg5050%{?dist}
+Release:        4.tg5050%{?dist}
 Summary:        AIC8800D80 firmware for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/knulli-cfw/knulli-linux
@@ -47,13 +47,29 @@ mkdir -p %{buildroot}/usr/lib/firmware/aic8800D80
 cp -a firmware/. %{buildroot}/usr/lib/firmware/aic8800D80/
 mkdir -p %{buildroot}/usr/lib/firmware/aic8800_sdio
 cp -a firmware/. %{buildroot}/usr/lib/firmware/aic8800_sdio/
+# The BSP module also requests these legacy flat names. Keep the actual
+# payload in the driver-facing directory and expose compatibility aliases.
+ln -s aic8800_sdio/fmacfw_8800d80_u02.bin %{buildroot}/usr/lib/firmware/fmacfw.bin
+ln -s aic8800_sdio/fw_patch_8800d80_u02.bin %{buildroot}/usr/lib/firmware/fmacfw_patch.bin
+ln -s aic8800_sdio/lmacfw_rf_8800d80_u02.bin %{buildroot}/usr/lib/firmware/fmacfw_rf.bin
+ln -s aic8800_sdio/lmacfw_rf_8800d80_u02.bin %{buildroot}/usr/lib/firmware/fmacfw_rf_usb.bin
+ln -s aic8800_sdio/fmacfw_8800d80_u02.bin %{buildroot}/usr/lib/firmware/fmacfw_usb.bin
 
 %files
 %doc README.md
 /usr/lib/firmware/aic8800D80
 /usr/lib/firmware/aic8800_sdio
+/usr/lib/firmware/fmacfw.bin
+/usr/lib/firmware/fmacfw_patch.bin
+/usr/lib/firmware/fmacfw_rf.bin
+/usr/lib/firmware/fmacfw_rf_usb.bin
+/usr/lib/firmware/fmacfw_usb.bin
 
 %changelog
+* Sat Sep 12 2026 Cappy Ishihara <cappy@fyralabs.com> - 2024.06.25-4.tg5050
+- Keep the board-native aic8800D80 directory canonical.
+- Make the driver-facing aic8800_sdio path a compatibility symlink.
+
 * Tue Sep 08 2026 Cappy Ishihara <cappy@fyralabs.com> - 2024.06.25-3.tg5050
 - Restore the complete known-working stock D80 firmware and configuration.
 - Fetch all eight files from a pinned KNULLI A527 board overlay commit.

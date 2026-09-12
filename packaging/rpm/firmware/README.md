@@ -26,12 +26,16 @@ The earlier RPM used Batocera's generic firmware collection at
 and patch-table files differed from the working board overlay. Shared
 filenames and chip family did not establish equivalence.
 
-The RPM now installs only the exact eight-file board set as real files in both
-`/usr/lib/firmware/aic8800D80/` and `/usr/lib/firmware/aic8800_sdio/`.
-The latter is the flat path required by the mainline SDIO driver.
+The RPM installs the exact eight-file board set as real files in both the
+canonical `/usr/lib/firmware/aic8800D80/` directory and the driver-facing
+`/usr/lib/firmware/aic8800_sdio/` directory. The legacy flat names
+`fmacfw.bin`, `fmacfw_patch.bin`, `fmacfw_rf.bin`, `fmacfw_rf_usb.bin`, and
+`fmacfw_usb.bin` are sibling symlinks into `aic8800_sdio/`, avoiding duplicate
+flat payloads while preserving the old BSP lookup paths.
 
 `Version: 2024.06.25` is retained for RPM upgrade ordering, not as a claim about
-the board blobs' build date. Release `3.tg5050` restores the verified payload;
+the board blobs' build date. Release `4.tg5050` preserves both board firmware
+directories and adds the flat compatibility symlinks;
 the package is architecture-independent (`noarch`).
 
 ## Build

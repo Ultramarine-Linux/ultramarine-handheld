@@ -153,3 +153,35 @@ jobs:
           name: aic8800-firmware-rpm-${{ github.sha }}
           if-no-files-found: error
           path: anda-build/
+
+  bsp:
+    name: kernel-tg5050-bsp (Andaman RPM)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
+    timeout-minutes: 30
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install RPM build tools
+        run: |
+          dnf install --assumeyes dnf-plugins-core git python3
+
+      - name: Build BSP kernel and module RPMs with Andaman
+        run: |
+          anda build -rrpmbuild --rpm-target aarch64 packaging/rpm/bsp
+
+      - name: Locate BSP build artifacts
+        run: |
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
+      - name: Upload BSP kernel RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-tg5050-bsp-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: anda-build/

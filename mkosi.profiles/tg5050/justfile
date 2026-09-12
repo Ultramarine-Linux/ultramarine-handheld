@@ -5,18 +5,29 @@ profile_dir := justfile_directory()
 project := profile_dir / "../.."
 build_dir := project / "build"
 env_source := profile_dir / "board/trimui-linux-direct-root.env"
+env_bsp_source := profile_dir / "board/trimui-linux-bsp.env"
 env_image := build_dir / "env.img"
 env_file := build_dir / "uboot.env"
+env_bsp_file := build_dir / "uboot-bsp.env"
 env_partition_image := build_dir / "env-partition.img"
 
-# Build the board's 128 KiB U-Boot environment image.
+# Build the board's 64 KiB U-Boot environment image. This must match
+# CONFIG_ENV_SIZE=0x10000 in the pinned mainline U-Boot configuration.
 env:
     mkdir -p {{build_dir}}
-    mkenvimage -s 0x20000 -p 0x00 -o {{env_image}} {{env_source}}
-    mkenvimage -s 0x20000 -p 0x00 -o {{env_file}} {{env_source}}
-    test "$(stat -c %s {{env_image}})" -eq 131072
-    test "$(stat -c %s {{env_file}})" -eq 131072
+    mkenvimage -s 0x10000 -p 0x00 -o {{env_image}} {{env_source}}
+    mkenvimage -s 0x10000 -p 0x00 -o {{env_file}} {{env_source}}
+    test "$(stat -c %s {{env_image}})" -eq 65536
+    test "$(stat -c %s {{env_file}})" -eq 65536
     sha256sum {{env_image}} {{env_file}}
+
+# Build the vendor-kernel direct-load 64 KiB environment. It is deliberately a
+# separate file so the mainline U-Boot environment remains unchanged.
+bsp-env:
+    mkdir -p {{build_dir}}
+    mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_bsp_source}}
+    test "$(stat -c %s {{env_bsp_file}})" -eq 65536
+    sha256sum {{env_bsp_file}}
 
 # The environment is now an optional file on the p1 ESP; no environment
 # partition is generated for the three-partition mainline layout.
@@ -196,4 +207,10 @@ summary:
 
 # Build the shared TG5050 userspace with the vendor BSP module overlay.
 bsp-rootfs-tree:
+    sudo mkosi --directory={{project}} --profile={{profile}},bsp --force
+
+# Build the fallback-preserving vendor-kernel image. This is intentionally a
+# separate artifact from mainline-image; it does not change the mainline
+# default or flash a target.
+bsp-image: bsp-env
     sudo mkosi --directory={{project}} --profile={{profile}},bsp --force
