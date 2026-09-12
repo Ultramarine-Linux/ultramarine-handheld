@@ -19,7 +19,13 @@ systemctl enable fancontrol.service
 systemctl mask kmscon.service kmsconvt@.service
 systemctl disable ultramarine-kms-journal.service
 systemctl mask getty@tty1.service
-systemctl enable greetd.service
+# SDDM is the BSP graphical login manager; mainline keeps greetd.
+if systemctl list-unit-files sddm.service >/dev/null 2>&1; then
+    systemctl disable greetd.service
+    systemctl enable sddm.service
+else
+    systemctl enable greetd.service
+fi
 systemctl mask NetworkManager-wait-online.service
 # This appliance is preconfigured; firstboot would wait for interactive input
 # that the handheld cannot provide during early bring-up.

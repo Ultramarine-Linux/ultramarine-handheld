@@ -1,2 +1,1 @@
 # Soft dependencies extracted from modules themselves.
-softdep mali_kbase pre: memory_group_manager

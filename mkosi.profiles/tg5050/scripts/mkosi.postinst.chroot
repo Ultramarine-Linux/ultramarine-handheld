@@ -1,6 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
+# The handheld has no practical interactive first-boot account setup. Create
+# the account used by greetd/Sway while the image is being assembled.
+for group in video render input audio; do
+    getent group "$group" >/dev/null || groupadd --system "$group"
+done
+if ! id ultramarine >/dev/null 2>&1; then
+    useradd --create-home --uid 1000 --user-group \
+        --groups video,render,input,audio,wheel ultramarine
+fi
+usermod --append --groups video,render,input,audio,wheel ultramarine
+install -d -o ultramarine -g ultramarine -m 0700 /home/ultramarine
+
 # SSH StrictModes requires root-owned key material even when the overlay was
 # staged by an unprivileged build user.
 chown root:root /root

@@ -9,7 +9,10 @@ env_bsp_source := profile_dir / "board/trimui-linux-bsp.env"
 env_image := build_dir / "env.img"
 env_file := build_dir / "uboot.env"
 env_bsp_file := build_dir / "uboot-bsp.env"
+env_bsp_sd_file := build_dir / "uboot-bsp-sd.env"
 env_partition_image := build_dir / "env-partition.img"
+stock_env_source := profile_dir / "board/stock-sd.env"
+stock_env_image := build_dir / "env.img"
 
 # Build the board's 64 KiB U-Boot environment image. This must match
 # CONFIG_ENV_SIZE=0x10000 in the pinned mainline U-Boot configuration.
@@ -28,6 +31,43 @@ bsp-env:
     mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_bsp_source}}
     test "$(stat -c %s {{env_bsp_file}})" -eq 65536
     sha256sum {{env_bsp_file}}
+
+# Build the 128 KiB vendor U-Boot environment for the four-partition BSP SD
+# image. This is deliberately separate from the 64 KiB mainline environment.
+stock-env:
+    mkdir -p {{build_dir}}
+    mkenvimage -s 0x20000 -p 0x00 -o {{stock_env_image}} {{stock_env_source}}
+    test "$(stat -c %s {{stock_env_image}})" -eq 131072
+    sha256sum {{stock_env_image}}
+
+# Build the 128 KiB vendor-contract environment for the four-partition BSP
+# image from the board-owned BSP environment source.
+bsp-sd-env:
+    mkdir -p {{build_dir}}
+    mkenvimage -s 0x20000 -p 0x00 -o {{env_bsp_sd_file}} {{env_source}}
+    test "$(stat -c %s {{env_bsp_sd_file}})" -eq 131072
+    sha256sum {{env_bsp_sd_file}}
+
+# Build the BSP userspace as a direct root tree. The vendor kernel and DTB are
+# carried by the p3 Android-style boot container, so p4 needs only the root.
+bsp-sd-rootfs:
+    sudo rm -rf {{build_dir}}/ultramarine-rootfs
+    sudo mkosi --directory={{project}} --profile={{profile}},bsp \
+        --format=directory --output=ultramarine-rootfs \
+        --output-directory={{build_dir}} --force
+    test -x {{build_dir}}/ultramarine-rootfs/sbin/init
+
+bsp-sd-rootfs-image: bsp-sd-rootfs
+    sudo rm -f {{build_dir}}/ultramarine-rootfs.ext4
+    truncate -s 2G {{build_dir}}/ultramarine-rootfs.ext4
+    sudo mkfs.ext4 -F -L ULTRAMARINE -d {{build_dir}}/ultramarine-rootfs \
+        {{build_dir}}/ultramarine-rootfs.ext4
+    sudo e2fsck -fn {{build_dir}}/ultramarine-rootfs.ext4
+
+# Build the vendor-contract four-partition BSP SD image without changing the
+# existing mainline image target.
+bsp-sd-image: bsp-sd-env bsp-sd-rootfs-image
+    {{profile_dir}}/image/assemble-sd-image
 
 # The environment is now an optional file on the p1 ESP; no environment
 # partition is generated for the three-partition mainline layout.

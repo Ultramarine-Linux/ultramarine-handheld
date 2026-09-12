@@ -1,0 +1,11 @@
+# Compact sparse 6 GiB image for the first p4-rootfs experiment.
+# Reserve the pre-GPT vendor boot area. p4 takes all space after p1-p3;
+# p1-p3 themselves are created by systemd-repart from the profile definitions.
+label: gpt
+label-id: BEE15CEB-86A0-423E-8F81-7F674E42714C
+unit: sectors
+first-lba: 73728
+last-lba: 12582878
+sector-size: 512
+
+/dev/loop0p4 : start=2416640, size=10166239, type=B921B045-1DF0-41C3-AF44-4C6F280D3FAE, uuid=693B9ABA-2FC7-4222-9BD9-D2DC7B82099A, name="rootfs"

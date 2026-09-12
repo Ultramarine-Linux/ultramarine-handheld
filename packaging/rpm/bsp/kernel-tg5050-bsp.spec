@@ -11,7 +11,6 @@ Source1:        vendor-kernel.dtb
 Source2:        aic8800_bsp.ko
 Source3:        aic8800_btlpm.ko
 Source4:        aic8800_fdrv.ko
-Source5:        mali_kbase.ko
 Source100:      modules.alias
 Source101:      modules.builtin
 Source102:      modules.builtin.modinfo
@@ -53,7 +52,7 @@ mkdir payload
 cp -p %{SOURCE0} payload/vendor-kernel-5.15.147.Image
 cp -p %{SOURCE1} payload/vendor-kernel.dtb
 mkdir payload/modules payload/config
-for source in %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} \
+for source in %{SOURCE2} %{SOURCE3} %{SOURCE4} \
     %{SOURCE100} %{SOURCE101} %{SOURCE102} %{SOURCE103} %{SOURCE104} \
     %{SOURCE105} %{SOURCE106}; do
     cp -p "$source" payload/modules/
@@ -75,7 +74,7 @@ install -D -m 0644 payload/vendor-kernel.dtb \
 install -D -m 0644 payload/config/trimui-smart-pro-s.conf \
     %{buildroot}/usr/lib/modules-load.d/trimui-smart-pro-s.conf
 install -d -m 0755 %{buildroot}/usr/lib/modules/%{krel}
-for file in aic8800_bsp.ko aic8800_btlpm.ko aic8800_fdrv.ko mali_kbase.ko \
+for file in aic8800_bsp.ko aic8800_btlpm.ko aic8800_fdrv.ko \
     modules.alias modules.builtin modules.builtin.modinfo modules.dep \
     modules.order modules.softdep modules.symbols; do
     install -D -m 0644 "payload/modules/$file" "%{buildroot}/usr/lib/modules/%{krel}/$file"
@@ -97,7 +96,6 @@ done
 /usr/lib/modules/%{krel}/aic8800_bsp.ko
 /usr/lib/modules/%{krel}/aic8800_btlpm.ko
 /usr/lib/modules/%{krel}/aic8800_fdrv.ko
-/usr/lib/modules/%{krel}/mali_kbase.ko
 /usr/lib/modules/%{krel}/modules.alias
 /usr/lib/modules/%{krel}/modules.dep
 
@@ -114,5 +112,5 @@ fi
 %changelog
 * Sat Sep 12 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-1.tg5050
 - Run depmod with the target kernel release so module indexes are generated.
-- Package the matched vendor BSP kernel, DTB, Mali kbase, and AIC8800 modules.
+- Package the matched vendor BSP kernel, DTB, and AIC8800 modules.
 - Preserve the BSP module metadata and module-load policy as RPM payloads.

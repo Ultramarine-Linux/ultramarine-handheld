@@ -2,9 +2,9 @@
 vt = 1
 
 [initial_session]
-command = "sway"
-user = "cappy"
+command = "/usr/local/bin/trimui-sway-session"
+user = "ultramarine"
 
 [default_session]
-command = "tuigreet --time --remember --cmd sway"
-user = "cappy"
+command = "tuigreet --time --remember --cmd /usr/local/bin/trimui-sway-session"
+user = "ultramarine"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the proven compact 6 GiB SD baseline in the TG5050 profile layout.
+# Build the vendor-contract four-partition BSP SD image.
 # The early SD payloads are the initial working combination: stock boot0 plus
 # the SD-proven boot package and Android p3 container.
 set -euo pipefail
@@ -8,26 +8,46 @@ profile=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 project=$(cd -- "$profile/../.." && pwd)
 build="$project/build"
 rootfs="$build/ultramarine-rootfs"
-env="$build/env.img"
-p3_image="$profile/board/vendor/sd/p3-kernel-container.img"
+rootfs_image="$build/ultramarine-rootfs.ext4"
+env="$build/uboot-bsp-sd.env"
+initrd="$build/ultramarine-trimui-bsp.initrd"
+p3_source="$profile/board/vendor/sd/p3-kernel-container.img"
+p3_image="$build/p3-kernel-only.img"
 boot0="$profile/board/vendor/stock/boot0.img"
 boot_package="$profile/board/vendor/sd/boot-package.fex"
-seed="$profile/image/layout-6g.seed.sfdisk"
-repart="$profile/image/repart.d"
+seed="$profile/image/layout-6g-p4-rootfs.seed.sfdisk"
+repart="$profile/image/repart-p4-rootfs"
 assets="$build/sd-image-assets"
 out="$build/ultramarine-trimui-6g.raw"
 
-for input in "$env" "$p3_image" "$boot0" "$boot_package" "$seed"; do
+for input in "$env" "$initrd" "$rootfs_image" "$p3_source" "$boot0" "$boot_package" "$seed"; do
     test -f "$input" || { echo "missing required input: $input" >&2; exit 1; }
 done
-test -d "$rootfs" || { echo "missing root tree: $rootfs" >&2; exit 1; }
 
+# Keep the vendor Android boot container's kernel/header layout, but disable
+# its embedded ramdisk. The external p1 initrd is the only ramdisk passed to
+# bootm for this BSP image.
+python3 - "$p3_source" "$p3_image" <<'PY'
+import pathlib
+import struct
+import sys
+
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+data = bytearray(src.read_bytes())
+if data[:8] != b"ANDROID!":
+    raise SystemExit("p3 container is not an Android boot image")
+ramdisk_size = struct.unpack_from("<I", data, 16)[0]
+if ramdisk_size == 0:
+    raise SystemExit("p3 source already has no embedded ramdisk")
+struct.pack_into("<I", data, 16, 0)
+dst.write_bytes(data)
+print(f"disabled p3 embedded ramdisk: {ramdisk_size} -> 0")
+PY
 rm -rf "$assets"
-mkdir -p "$assets"
-test -f "$rootfs/boot/EFI/BOOT/BOOTAA64.EFI" || {
-    echo "missing staged systemd-boot ESP" >&2
-    exit 1
-}
+mkdir -p "$assets/p1-minimal"
+cp -a "$profile/board/vendor/sd/boot-resource/." "$assets/p1-minimal/"
+cp -a "$initrd" "$assets/p1-minimal/initrd"
 
 cp -a "$boot0" "$assets/boot0.img"
 cp -a "$boot_package" "$assets/boot_package.fex"
@@ -36,11 +56,15 @@ rm -f "$out"
 truncate -s 6G "$out"
 sfdisk "$out" < "$seed" >/dev/null
 
+# p4 is a prebuilt direct-root filesystem; place it before repart creates the
+# vendor p1-p3 prefix.
+dd if="$rootfs_image" of="$out" bs=1M seek=1180 conv=notrunc status=none
+
 sudo systemd-repart \
     --offline=no \
     --empty=allow \
     --architecture=arm64 \
-    --copy-source="$rootfs" \
+    --copy-source="$assets" \
     --image="$out" \
     --definitions="$repart" \
     --dry-run=no
@@ -69,7 +93,7 @@ cmp -s "$p3_image" <(dd if="$out" bs=512 skip=2203648 count=196608 status=none)
 cmp -s "$assets/boot0.img" <(dd if="$out" bs=512 skip=256 count=136 status=none)
 cmp -s "$assets/boot_package.fex" <(dd if="$out" bs=512 skip=32800 count=3424 status=none)
 
-rm -rf "$rootfs"
+sudo rm -rf "$rootfs"
 
 sha256sum "$out"
 stat -c '%n %s bytes (apparent)' "$out"

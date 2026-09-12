@@ -1,0 +1,2 @@
+# Vendor four-partition layout: p4 is the root filesystem.
+/dev/mmcblk0p4  /  ext4  defaults,x-systemd.growfs  0  1

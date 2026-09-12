@@ -1,0 +1,4 @@
+# Mainline three-partition layout: ESP, /boot, and root.
+/dev/mmcblk0p3  /  ext4  defaults  0  1
+PARTUUID=5de82070-7b8c-4337-bb93-cae98c396718  /boot  ext4  defaults,nofail,x-systemd.device-timeout=10s  0  2
+PARTUUID=2f8a6891-7e8a-49af-b3b9-e5249519cfe7  /efi  vfat  defaults,nofail,x-systemd.device-timeout=10s  0  2

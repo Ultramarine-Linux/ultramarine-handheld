@@ -1,0 +1,2 @@
+# The Smart Pro S panel is physically portrait; use its native DSI mode.
+output DSI-1 mode 720x1280@59.517Hz transform 270

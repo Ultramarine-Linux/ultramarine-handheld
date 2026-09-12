@@ -1,0 +1,10 @@
+--- external-shmem/drm_gem_shmem_helper.c
++++ external-shmem/drm_gem_shmem_helper.c
+@@ -16,6 +16,8 @@
+ #include <drm/drm_prime.h>
+ #include <drm/drm_print.h>
+ 
++MODULE_LICENSE("GPL");
++
+ /**
+  * DOC: overview
