@@ -1,0 +1,30 @@
+--- bsp/drivers/gpu/panfrost/panfrost_gem_shrinker.c
++++ bsp/drivers/gpu/panfrost/panfrost_gem_shrinker.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include <linux/list.h>
++#include <linux/dma-resv.h>
+ 
+ #include <drm/drm_device.h>
+ #include <drm/drm_gem_shmem_helper.h>
+@@ -51,6 +52,9 @@
+ 	if (!mutex_trylock(&shmem->pages_lock))
+ 		goto unlock_mappings;
+ 
++	if (!dma_resv_trylock(shmem->base.resv))
++		goto unlock_pages;
++
+ 	panfrost_gem_teardown_mappings_locked(bo);
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 147))
+ 	drm_gem_shmem_purge_locked(&bo->base);
+@@ -58,7 +62,9 @@
+ 	drm_gem_shmem_purge_locked(obj);
+ #endif
+ 	ret = true;
++	dma_resv_unlock(shmem->base.resv);
+ 
++unlock_pages:
+ 	mutex_unlock(&shmem->pages_lock);
+ 
+ unlock_mappings:

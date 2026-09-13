@@ -1,0 +1,12 @@
+--- external-shmem/drm_gem_shmem_helper.c
++++ external-shmem/drm_gem_shmem_helper.c
+@@ -442,7 +442,8 @@
+ 
+ 	shmem->madv = -1;
+ 
+-	drm_vma_node_unmap(&obj->vma_node, dev->anon_inode->i_mapping);
++	/* The vendor 5.15 DRM anon-inode mapping is invalid during shmem
++	 * reclaim; Panfrost tears down its own mappings before this point. */
+ 	drm_gem_free_mmap_offset(obj);
+ 
+ 	/* Our goal here is to return as much of the memory as

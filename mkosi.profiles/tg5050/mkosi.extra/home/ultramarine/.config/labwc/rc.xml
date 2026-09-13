@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <core>
+    <decoration>no</decoration>
+  </core>
+
+  <keyboard>
+    <default/>
+    <!-- Hide the cursor at session start; pointer activity reveals it. -->
+    <keybind key="A-W-h">
+      <action name="HideCursor"/>
+    </keybind>
+  </keyboard>
+</labwc_config>

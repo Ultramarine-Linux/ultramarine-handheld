@@ -12,6 +12,19 @@ if ! id ultramarine >/dev/null 2>&1; then
 fi
 usermod --append --groups video,render,input,audio,wheel ultramarine
 install -d -o ultramarine -g ultramarine -m 0700 /home/ultramarine
+install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/labwc
+chown -R ultramarine:ultramarine /home/ultramarine/.config/labwc
+chmod 0644 /home/ultramarine/.config/labwc/rc.xml
+chmod 0755 /home/ultramarine/.config/labwc/autostart
+
+# ES-DE does not include this SDL mapping for the trimui_inputd virtual pad.
+install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/ES-DE/controllers
+cat > /home/ultramarine/ES-DE/controllers/es_controller_mappings.cfg <<'EOF'
+# Knulli-compatible TrimUI Smart Pro S virtual controller.
+030000005e0400008e02000014010000,TRIMUI Smart Pro S Controller,platform:Linux,b:b1,a:b0,dpdown:h0.4,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,leftstick:b11,dpleft:h0.8,rightshoulder:b5,leftshoulder:b4,righttrigger:b7,rightstick:b12,dpright:h0.2,back:b8,start:b9,dpup:h0.1,y:b3,x:b2,guide:b10,
+EOF
+chown ultramarine:ultramarine /home/ultramarine/ES-DE/controllers/es_controller_mappings.cfg
+chmod 0644 /home/ultramarine/ES-DE/controllers/es_controller_mappings.cfg
 
 # The vendor display engine rejects AFBC-compressed KWin buffers.  Keep
 # Bigscreen on linear GBM buffers, as used by the validated Panfrost scanout

@@ -14,6 +14,10 @@ Source1:        https://github.com/radxa/allwinner-bsp/archive/%{radxa_commit}/a
 Source2:        kmod-panfrost.conf
 Source3:        kmod-panfrost.config
 Source4:        0001-external-shmem-module-license.patch
+Source5:        0002-panfrost-a523-bsp-clock-handoff-test.patch
+Source6:        0003-panfrost-shrinker-reservation-lock.patch
+Source7:        0004-shmem-skip-vma-unmap-after-handle-teardown.patch
+
 
 %global krel 5.15.147
 %global debug_package %{nil}
@@ -37,6 +41,10 @@ mkdir external-shmem
 cp -p drivers/gpu/drm/drm_gem_shmem_helper.c external-shmem/
 printf '%s\n' 'obj-m += drm_gem_shmem_helper.o' > external-shmem/Makefile
 patch -p0 < %{SOURCE4}
+patch -p0 < %{SOURCE5}
+patch -p0 < %{SOURCE6}
+patch -p0 < %{SOURCE7}
+
 
 %build
 export ARCH=arm64
@@ -48,7 +56,7 @@ export BSP_TOP="$PWD/bsp/"
 make BSP_TOP="$BSP_TOP" sun55iw3p1_min_defconfig
 ./scripts/kconfig/merge_config.sh -m .config kmod-panfrost.config
 ./scripts/config --set-val CONFIG_DRM_SCHED m
-./scripts/config --set-val CONFIG_DRM_GEM_SHMEM_HELPER m
+./scripts/config --set-val CONFIG_DRM_GEM_SHMEM_HELPER y
 ./scripts/config --set-val CONFIG_AW_DRM_PANFROST m
 make BSP_TOP="$BSP_TOP" olddefconfig
 make modules_prepare

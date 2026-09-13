@@ -17,7 +17,7 @@ systemctl enable fancontrol.service
 systemctl enable trimui-audio-mixer.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
 chmod 0755 /usr/local/bin/trimui-start-remote-foot
-chmod 0755 /etc/xdg/labwc/autostart
+chmod 0755 /home/ultramarine/.config/labwc/autostart
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
 # greetd, which creates and activates the graphical PAM/logind session.
 systemctl mask kmscon.service kmsconvt@.service

@@ -1,0 +1,27 @@
+--- bsp/drivers/gpu/panfrost/panfrost_gem_shrinker.c
++++ bsp/drivers/gpu/panfrost/panfrost_gem_shrinker.c
+@@ -103,11 +103,8 @@
+  */
+ void panfrost_gem_shrinker_init(struct drm_device *dev)
+ {
+-	struct panfrost_device *pfdev = dev->dev_private;
+-	pfdev->shrinker.count_objects = panfrost_gem_shrinker_count;
+-	pfdev->shrinker.scan_objects = panfrost_gem_shrinker_scan;
+-	pfdev->shrinker.seeks = DEFAULT_SEEKS;
+-	WARN_ON(register_shrinker(&pfdev->shrinker));
++	/* Disabled for the vendor 5.15 out-of-tree shmem lifetime path. */
++	return;
+ }
+ 
+ /**
+@@ -118,9 +115,5 @@
+  */
+ void panfrost_gem_shrinker_cleanup(struct drm_device *dev)
+ {
+-	struct panfrost_device *pfdev = dev->dev_private;
+-
+-	if (pfdev->shrinker.nr_deferred) {
+-		unregister_shrinker(&pfdev->shrinker);
+-	}
++	return;
+ }

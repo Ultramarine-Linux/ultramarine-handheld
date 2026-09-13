@@ -3,5 +3,8 @@
 # Native portrait mode for the Smart Pro S panel.
 wlr-randr --output DSI-1 --mode 720x1280@59.517Hz --transform 90 || true
 
+# Invoke labwc's cursor-hide binding for controller-only sessions.
+wtype -M alt -M logo -P h
+
 # Fresh terminal containing the remote debug Zellij session.
 exec /usr/local/bin/trimui-start-remote-foot

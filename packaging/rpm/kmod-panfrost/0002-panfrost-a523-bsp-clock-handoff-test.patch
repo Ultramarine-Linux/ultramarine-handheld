@@ -1,0 +1,87 @@
+--- bsp/drivers/gpu/panfrost/panfrost_device.c
++++ bsp/drivers/gpu/panfrost/panfrost_device.c
+@@ -69,52 +69,36 @@
+ 	unsigned long rate;
+ 
+ #if IS_ENABLED(CONFIG_ARCH_SUN50IW9) || IS_ENABLED(CONFIG_ARCH_SUN55IW3)
+-	rate = AW_GPU_CLK_RATE;
++	rate = 432000000;
+ 	aw_power_gating(pfdev, false);
+ 
+-	pfdev->parent_clock = of_clk_get_by_name(pfdev->dev->of_node, "clk_parent");
+-	if (!IS_ERR_OR_NULL(pfdev->parent_clock)) {
+-		clk_set_rate(pfdev->parent_clock, rate);
+-		err = clk_prepare_enable(pfdev->parent_clock);
+-		if (err)
+-			return err;
+-	} else {
+-		dev_err(pfdev->dev, "get clk_parent failed %ld\n", PTR_ERR(pfdev->parent_clock));
+-		return PTR_ERR(pfdev->parent_clock);
+-	}
+-
+-	pfdev->clock = of_clk_get_by_name(pfdev->dev->of_node, "clk_mali");
+-	if (!IS_ERR_OR_NULL(pfdev->clock)) {
+-		clk_set_rate(pfdev->clock, rate);
+-		err = clk_prepare_enable(pfdev->clock);
++	/* Match the vendor Mali handoff: clk-gpu at 432 MHz and bus-gpu at
++	 * 200 MHz. The vendor OF lookup is not usable for this module. */
++	pfdev->clock = devm_clk_get(pfdev->dev, NULL);
++	if (IS_ERR(pfdev->clock)) {
++		dev_err(pfdev->dev, "get clock failed %ld\n", PTR_ERR(pfdev->clock));
++		return PTR_ERR(pfdev->clock);
++	}
++
++	clk_set_rate(pfdev->clock, rate);
++	err = clk_prepare_enable(pfdev->clock);
+ 	if (err)
+ 		return err;
+ 
+-	} else {
+-		dev_err(pfdev->dev, "get clk_mali failed %ld\n", PTR_ERR(pfdev->parent_clock));
+-		return PTR_ERR(pfdev->clock);
+-	}
+-
+-	pfdev->bus_clock = of_clk_get_by_name(pfdev->dev->of_node, "clk_bus");
+-	if (!IS_ERR_OR_NULL(pfdev->bus_clock)) {
++	pfdev->bus_clock = devm_clk_get_optional(pfdev->dev, "clk_bus");
++	if (IS_ERR(pfdev->bus_clock)) {
++		dev_err(pfdev->dev, "get bus_clock failed %ld\n",
++			PTR_ERR(pfdev->bus_clock));
++		err = PTR_ERR(pfdev->bus_clock);
++		goto disable_clock;
++	}
++
++	if (pfdev->bus_clock) {
++		clk_set_rate(pfdev->bus_clock, 200000000);
+ 		err = clk_prepare_enable(pfdev->bus_clock);
+ 		if (err)
+ 			goto disable_clock;
+-	} else {
+-		dev_err(pfdev->dev, "get clk_bus failed %ld\n", PTR_ERR(pfdev->bus_clock));
+-	}
+-
+-#if IS_ENABLED(CONFIG_ARCH_SUN50IW9)
+-	pfdev->bak_clock = of_clk_get_by_name(pfdev->dev->of_node, "clk_bak");
+-	if (!IS_ERR_OR_NULL(pfdev->bak_clock)) {
+-		clk_set_rate(pfdev->bak_clock, AW_GPU_CLK_RATE);
+-		err = clk_prepare_enable(pfdev->bak_clock);
+-	if (err)
+-		goto disable_clock;
+-	} else {
+-		dev_err(pfdev->dev, "get clk_bak failed %ld\n", PTR_ERR(pfdev->bak_clock));
+-	}
+-#endif
++	}
+ 
+ #else
+ 	pfdev->clock = devm_clk_get(pfdev->dev, NULL);
+@@ -160,7 +144,8 @@
+ {
+ 	clk_disable_unprepare(pfdev->bus_clock);
+ 	clk_disable_unprepare(pfdev->clock);
+-	clk_disable_unprepare(pfdev->parent_clock);
++	if (pfdev->parent_clock)
++		clk_disable_unprepare(pfdev->parent_clock);
+ #if IS_ENABLED(CONFIG_ARCH_SUN50IW9)
+ 	clk_disable_unprepare(pfdev->bak_clock);
+ #endif

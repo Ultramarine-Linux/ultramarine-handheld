@@ -18,6 +18,35 @@ a mkosi-built systemd initrd, and an ARM64 Fedora/Ultramarine root filesystem.
 The vendor boot inputs remain available for reference/recovery, but the
 mainline path does not boot the vendor boot package or Android ramdisk.
 
+The optional vendor GPU stack is built separately as a system extension:
+
+```bash
+just --justfile mkosi.profiles/tg5050/justfile bsp-sysext
+```
+
+`build/ultramarine-tg5050-bsp-drivers.raw` contains the matched vendor
+`libmali` EGL/GLES/GBM userspace, Vulkan ICD, CSF firmware, and the
+`5.15.147` `mali_kbase` module tree. It is intended for the matching vendor
+BSP kernel only. It cannot make `mali_kbase` work with the mainline kernel,
+and the mainline Panfrost and vendor Mali stacks remain mutually exclusive.
+
+The GPU stacks are selected across a reboot rather than loaded side by side.
+For vendor Mali mode, copy the extension to `/var/lib/extensions/`, run
+`systemd-sysext refresh`, and reboot. To return to Panfrost, remove the vendor
+extension image, run `systemd-sysext refresh`, and reboot. The vendor
+extension's `/usr/lib/modprobe.d/` policy blacklists Panfrost only while that
+extension is active; the base image does not blacklist `mali_kbase`.
+
+The inverse Panfrost extension is built from the pinned `kmod-panfrost` RPM:
+
+```bash
+just --justfile mkosi.profiles/tg5050/justfile panfrost-sysext
+```
+
+Only one GPU extension should be present in `/var/lib/extensions/` at a time.
+Remove the inactive extension, run `systemd-sysext refresh`, and reboot before
+selecting the other stack.
+
 ## Source inputs vs. build outputs
 
 Board-owned vendor inputs and profile-local overlays live under

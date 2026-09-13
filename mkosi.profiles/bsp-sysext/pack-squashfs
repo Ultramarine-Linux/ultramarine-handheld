@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+src=${1:?source tree}
+dst=${2:?clean extension tree}
+
+rm -rf "$dst"
+mkdir -p \
+    "$dst/usr/lib" \
+    "$dst/usr/lib/extension-release.d" \
+    "$dst/usr/lib/firmware" \
+    "$dst/usr/lib/modules" \
+    "$dst/usr/lib/modules-load.d" \
+    "$dst/usr/lib/modprobe.d" \
+    "$dst/usr/lib/systemd/system" \
+    "$dst/usr/lib/systemd/system-preset" \
+    "$dst/usr/lib/systemd/system/multi-user.target.wants" \
+    "$dst/usr/share/vulkan/icd.d"
+
+cp -a "$src/usr/lib/extension-release.d/extension-release.tg5050-bsp-drivers" \
+    "$dst/usr/lib/extension-release.d/"
+cp -a "$src/usr/lib/firmware/LICENCE.mali_csffw" "$dst/usr/lib/firmware/"
+cp -a "$src/usr/lib/firmware/arm" "$dst/usr/lib/firmware/"
+cp -a "$src/usr/lib/modules/5.15.147" "$dst/usr/lib/modules/"
+cp -a "$src/usr/lib/modules-load.d/tg5050-bsp-mali.conf" "$dst/usr/lib/modules-load.d/"
+cp -a "$src/usr/lib/modprobe.d/tg5050-bsp-mali.conf" "$dst/usr/lib/modprobe.d/"
+cp -a "$src/usr/lib/systemd/system/tg5050-bsp-mali.service" "$dst/usr/lib/systemd/system/"
+cp -a "$src/usr/lib/systemd/system-preset/98-tg5050-bsp-mali.preset" "$dst/usr/lib/systemd/system-preset/"
+ln -s ../tg5050-bsp-mali.service \
+    "$dst/usr/lib/systemd/system/multi-user.target.wants/tg5050-bsp-mali.service"
+ln -s tg5050-bsp-mali.service "$dst/usr/lib/systemd/system/gpu-kmod.service"
+cp -a "$src/usr/share/vulkan/icd.d/mali_icd.json" "$dst/usr/share/vulkan/icd.d/"
+
+for pattern in \
+    libmali.so* libEGL.so* libGLESv1_CM.so* libGLESv2.so* \
+    libgbm.so* libOpenCL.so* libwayland-egl.so*; do
+    cp -a "$src/usr/lib"/$pattern "$dst/usr/lib/"
+done

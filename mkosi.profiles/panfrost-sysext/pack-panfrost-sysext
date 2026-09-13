@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+rpm_dir=${1:?directory containing ARM64 RPMs}
+out=${2:?output image}
+work=$(mktemp -d)
+root="$work/root"
+trap 'rm -rf "$work"' EXIT
+
+mkdir -p "$root/usr/lib/extension-release.d" "$root/usr/lib/modprobe.d" \
+    "$root/usr/lib/systemd/system" "$root/usr/lib/systemd/system/multi-user.target.wants" \
+    "$root/usr/lib64" "$root/usr/share"
+cat > "$root/usr/lib/extension-release.d/extension-release.tg5050-panfrost" <<'EOF'
+ID=ultramarine
+VERSION_ID=44
+SYSEXT_SCOPE=system
+EOF
+cat > "$root/usr/lib/modprobe.d/tg5050-panfrost.conf" <<'EOF'
+blacklist mali_kbase
+EOF
+cat > "$root/usr/lib/systemd/system/tg5050-panfrost.service" <<'EOF'
+[Unit]
+Description=Load the TG5050 Panfrost modules
+Requires=systemd-sysext.service
+After=systemd-sysext.service systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe panfrost
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+Alias=gpu-kmod.service
+EOF
+ln -s ../tg5050-panfrost.service \
+    "$root/usr/lib/systemd/system/multi-user.target.wants/tg5050-panfrost.service"
+ln -s tg5050-panfrost.service "$root/usr/lib/systemd/system/gpu-kmod.service"
+
+mkdir -p "$work/rpm"
+for rpm in "$rpm_dir"/*.rpm; do
+    rpm2cpio "$rpm" | (cd "$work/rpm" && cpio -idm --quiet)
+done
+cp -a "$work/rpm/usr/lib/modules" "$root/usr/lib/"
+cp -a "$work/rpm/usr/lib/modules-load.d" "$root/usr/lib/"
+cp -a "$work/rpm/usr/lib64/." "$root/usr/lib64/"
+cp -a "$work/rpm/usr/share/vulkan" "$root/usr/share/"
+ln -s usr/lib "$root/lib"
+depmod -b "$root" 5.15.147
+rm -f "$root/lib"
+mksquashfs "$root" "$out" -noappend -comp zstd -all-root >/dev/null

@@ -69,6 +69,41 @@ bsp-sd-rootfs-image: bsp-sd-rootfs
 bsp-sd-image: bsp-sd-env bsp-sd-rootfs-image
     {{profile_dir}}/image/assemble-sd-image
 
+# Build the optional vendor GPU system extension. This contains the matched
+# Mali userspace and 5.15.147 mali_kbase module tree, but does not change the
+# mainline image or its Panfrost stack. Activate it only while booted into the
+# matching vendor BSP kernel.
+bsp-sysext:
+    sudo mkosi --directory={{project}}/mkosi.profiles/bsp-sysext \
+        --force
+    sudo mkdir -p {{build_dir}}/ultramarine-tg5050-bsp-drivers/usr/lib/modules
+    sudo cp -a {{project}}/mkosi.profiles/bsp/mkosi.extra/lib/modules/5.15.147 \
+        {{build_dir}}/ultramarine-tg5050-bsp-drivers/usr/lib/modules/
+    sudo depmod -b {{build_dir}}/ultramarine-tg5050-bsp-drivers 5.15.147
+    chmod +x {{project}}/mkosi.profiles/bsp-sysext/pack-squashfs
+    sudo {{project}}/mkosi.profiles/bsp-sysext/pack-squashfs \
+        {{build_dir}}/ultramarine-tg5050-bsp-drivers \
+        {{build_dir}}/ultramarine-tg5050-bsp-drivers-clean
+    sudo rm -f {{build_dir}}/ultramarine-tg5050-bsp-drivers.raw
+    sudo mksquashfs {{build_dir}}/ultramarine-tg5050-bsp-drivers-clean \
+        {{build_dir}}/ultramarine-tg5050-bsp-drivers.raw \
+        -noappend -comp zstd -all-root
+    test -f {{build_dir}}/ultramarine-tg5050-bsp-drivers.raw
+
+# Build the inverse GPU system extension from the reproducible kmod-panfrost
+# RPM plus Fedora Mesa ARM64 userspace. It is selected instead of the vendor
+# Mali extension, never alongside it.
+panfrost-sysext:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -f {{build_dir}}/panfrost-rpms/kmod-panfrost-*.rpm || {
+        echo 'kmod-panfrost RPM not found; build it first' >&2; exit 1;
+    }
+    chmod +x {{project}}/mkosi.profiles/panfrost-sysext/pack-panfrost-sysext
+    sudo {{project}}/mkosi.profiles/panfrost-sysext/pack-panfrost-sysext \
+        {{build_dir}}/panfrost-rpms \
+        {{build_dir}}/ultramarine-tg5050-panfrost.raw
+
 # The environment is now an optional file on the p1 ESP; no environment
 # partition is generated for the three-partition mainline layout.
 
