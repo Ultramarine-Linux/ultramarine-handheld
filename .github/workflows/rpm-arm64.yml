@@ -185,3 +185,39 @@ jobs:
           name: kernel-tg5050-bsp-rpms-${{ github.sha }}
           if-no-files-found: error
           path: anda-build/
+
+  kmod-panfrost:
+    name: kmod-panfrost (Andaman RPM)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
+    timeout-minutes: 60
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install RPM build tools
+        run: |
+          dnf install --assumeyes dnf-plugins-core git python3
+
+      - name: Install Panfrost kmod build dependencies
+        run: |
+          dnf builddep --assumeyes packaging/rpm/kmod-panfrost/kmod-panfrost.spec
+
+      - name: Build Panfrost kmod RPM with Andaman
+        run: |
+          anda build -rrpmbuild --rpm-target aarch64 packaging/rpm/kmod-panfrost
+
+      - name: Locate Panfrost kmod artifacts
+        run: |
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
+      - name: Upload Panfrost kmod RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-panfrost-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: anda-build/
