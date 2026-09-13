@@ -13,6 +13,19 @@ fi
 usermod --append --groups video,render,input,audio,wheel ultramarine
 install -d -o ultramarine -g ultramarine -m 0700 /home/ultramarine
 
+# The vendor display engine rejects AFBC-compressed KWin buffers.  Keep
+# Bigscreen on linear GBM buffers, as used by the validated Panfrost scanout
+# path.
+install -d -o ultramarine -g ultramarine -m 0755 \
+    /home/ultramarine/.config/plasma-workspace/env
+cat > /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh <<'EOF'
+#!/bin/sh
+export KWIN_DRM_USE_MODIFIERS=0
+EOF
+chown ultramarine:ultramarine \
+    /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh
+chmod 0755 /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh
+
 # SSH StrictModes requires root-owned key material even when the overlay was
 # staged by an unprivileged build user.
 chown root:root /root

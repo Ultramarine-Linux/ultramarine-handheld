@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Native portrait mode for the Smart Pro S panel.
+wlr-randr --output DSI-1 --mode 720x1280@59.517Hz --transform 90 || true
+
+# Fresh terminal containing the remote debug Zellij session.
+exec /usr/local/bin/trimui-start-remote-foot

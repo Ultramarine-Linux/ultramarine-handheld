@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+# A523 audiocodec routing from the validated Knulli profile.
+amixer -c 0 sset SPK on
+amixer -c 0 sset HPOUT on
+amixer -c 0 sset LINEOUTL on
+amixer -c 0 sset LINEOUTR on
+amixer -c 0 sset 'HPOUT Gain' 5
+amixer -c 0 sset 'LINEOUT Gain' 23
+amixer -c 0 sset 'DACL DACR Swap' On
+amixer -c 0 sset DAC 63
+
+# Persist the route for alsa-state when available.
+alsactl store 0 2>/dev/null || true

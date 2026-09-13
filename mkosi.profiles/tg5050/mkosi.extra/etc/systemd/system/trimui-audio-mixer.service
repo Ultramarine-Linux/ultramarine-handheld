@@ -1,0 +1,12 @@
+[Unit]
+Description=Initialize TrimUI A523 codec mixer routing
+After=sound.target
+Before=pipewire.service wireplumber.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/trimui-audio-mixer
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

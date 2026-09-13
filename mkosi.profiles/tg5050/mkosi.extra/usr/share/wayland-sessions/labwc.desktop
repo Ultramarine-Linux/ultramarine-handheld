@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=labwc
+Comment=Lightweight stacking Wayland compositor
+Exec=labwc
+TryExec=labwc
+Type=Application
+DesktopNames=labwc

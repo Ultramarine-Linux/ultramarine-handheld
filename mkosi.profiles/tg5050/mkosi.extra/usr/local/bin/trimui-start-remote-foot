@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+zellij delete-session --force remote >/dev/null 2>&1 || true
+exec foot zellij -s remote
