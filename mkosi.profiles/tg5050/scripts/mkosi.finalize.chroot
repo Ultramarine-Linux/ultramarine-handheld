@@ -16,20 +16,15 @@ systemctl enable trimui-power-toggle.service
 systemctl enable fancontrol.service
 systemctl enable trimui-audio-mixer.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
-chmod 0755 /usr/local/bin/trimui-start-remote-foot
 chmod 0755 /home/ultramarine/.config/labwc/autostart
+
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
 # greetd, which creates and activates the graphical PAM/logind session.
 systemctl mask kmscon.service kmsconvt@.service
 systemctl disable ultramarine-kms-journal.service
 systemctl mask getty@tty1.service
-# SDDM is the BSP graphical login manager; mainline keeps greetd.
-if systemctl list-unit-files sddm.service >/dev/null 2>&1; then
-    systemctl disable greetd.service
-    systemctl enable sddm.service
-else
-    systemctl enable greetd.service
-fi
+# greetd owns the graphical login session for both boot-stack profiles.
+systemctl enable greetd.service
 systemctl mask NetworkManager-wait-online.service
 # This appliance is preconfigured; firstboot would wait for interactive input
 # that the handheld cannot provide during early bring-up.

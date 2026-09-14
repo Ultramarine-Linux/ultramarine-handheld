@@ -2,9 +2,9 @@
 vt = 1
 
 [initial_session]
-command = "/usr/local/bin/trimui-sway-session"
+command = "/usr/bin/systemctl --user start --wait marina-session.service"
 user = "ultramarine"
 
 [default_session]
-command = "tuigreet --time --remember --cmd /usr/local/bin/trimui-sway-session"
+command = "tuigreet --time --remember --cmd '/usr/bin/systemctl --user start --wait marina-session.service'"
 user = "ultramarine"

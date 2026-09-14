@@ -4,8 +4,7 @@ profile := "tg5050"
 profile_dir := justfile_directory()
 project := profile_dir / "../.."
 build_dir := project / "build"
-env_source := profile_dir / "board/trimui-linux-direct-root.env"
-env_bsp_source := profile_dir / "board/trimui-linux-bsp.env"
+env_source := profile_dir / "board/trimui-linux-bsp.env"
 env_image := build_dir / "env.img"
 env_file := build_dir / "uboot.env"
 env_bsp_file := build_dir / "uboot-bsp.env"
@@ -28,7 +27,7 @@ env:
 # separate file so the mainline U-Boot environment remains unchanged.
 bsp-env:
     mkdir -p {{build_dir}}
-    mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_bsp_source}}
+    mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_source}}
     test "$(stat -c %s {{env_bsp_file}})" -eq 65536
     sha256sum {{env_bsp_file}}
 
@@ -74,14 +73,14 @@ bsp-sd-image: bsp-sd-env bsp-sd-rootfs-image
 # mainline image or its Panfrost stack. Activate it only while booted into the
 # matching vendor BSP kernel.
 bsp-sysext:
-    sudo mkosi --directory={{project}}/mkosi.profiles/bsp-sysext \
+    sudo mkosi --directory={{project}}/mkosi.profiles/tg5050/sysext/bsp \
         --force
     sudo mkdir -p {{build_dir}}/ultramarine-tg5050-bsp-drivers/usr/lib/modules
     sudo cp -a {{project}}/mkosi.profiles/bsp/mkosi.extra/lib/modules/5.15.147 \
         {{build_dir}}/ultramarine-tg5050-bsp-drivers/usr/lib/modules/
     sudo depmod -b {{build_dir}}/ultramarine-tg5050-bsp-drivers 5.15.147
-    chmod +x {{project}}/mkosi.profiles/bsp-sysext/pack-squashfs
-    sudo {{project}}/mkosi.profiles/bsp-sysext/pack-squashfs \
+    chmod +x {{project}}/mkosi.profiles/tg5050/sysext/bsp/pack-squashfs
+    sudo {{project}}/mkosi.profiles/tg5050/sysext/bsp/pack-squashfs \
         {{build_dir}}/ultramarine-tg5050-bsp-drivers \
         {{build_dir}}/ultramarine-tg5050-bsp-drivers-clean
     sudo rm -f {{build_dir}}/ultramarine-tg5050-bsp-drivers.raw
@@ -99,8 +98,8 @@ panfrost-sysext:
     test -f {{build_dir}}/panfrost-rpms/kmod-panfrost-*.rpm || {
         echo 'kmod-panfrost RPM not found; build it first' >&2; exit 1;
     }
-    chmod +x {{project}}/mkosi.profiles/panfrost-sysext/pack-panfrost-sysext
-    sudo {{project}}/mkosi.profiles/panfrost-sysext/pack-panfrost-sysext \
+    chmod +x {{project}}/mkosi.profiles/tg5050/sysext/panfrost/pack-panfrost-sysext
+    sudo {{project}}/mkosi.profiles/tg5050/sysext/panfrost/pack-panfrost-sysext \
         {{build_dir}}/panfrost-rpms \
         {{build_dir}}/ultramarine-tg5050-panfrost.raw
 

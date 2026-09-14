@@ -1,0 +1,18 @@
+[Unit]
+Description=Marina remote Foot/Zellij console
+After=marina-session.service
+PartOf=marina-session.service
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/zellij delete-session --force remote
+ExecStart=/usr/bin/foot zellij -s remote
+ExecStopPost=-/usr/bin/zellij delete-session --force remote
+Restart=on-failure
+RestartSec=2
+KillMode=mixed
+
+
+[Install]
+WantedBy=graphical-session.target

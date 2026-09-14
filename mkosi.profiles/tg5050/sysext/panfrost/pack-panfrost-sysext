@@ -10,29 +10,11 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$root/usr/lib/extension-release.d" "$root/usr/lib/modprobe.d" \
     "$root/usr/lib/systemd/system" "$root/usr/lib/systemd/system/multi-user.target.wants" \
     "$root/usr/lib64" "$root/usr/share"
-cat > "$root/usr/lib/extension-release.d/extension-release.tg5050-panfrost" <<'EOF'
-ID=ultramarine
-VERSION_ID=44
-SYSEXT_SCOPE=system
-EOF
-cat > "$root/usr/lib/modprobe.d/tg5050-panfrost.conf" <<'EOF'
-blacklist mali_kbase
-EOF
-cat > "$root/usr/lib/systemd/system/tg5050-panfrost.service" <<'EOF'
-[Unit]
-Description=Load the TG5050 Panfrost modules
-Requires=systemd-sysext.service
-After=systemd-sysext.service systemd-modules-load.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/modprobe panfrost
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-Alias=gpu-kmod.service
-EOF
+extra="$(dirname "$0")/extra/usr"
+cp -a "$extra/lib/extension-release.d/extension-release.tg5050-panfrost" \
+    "$root/usr/lib/extension-release.d/"
+cp -a "$extra/lib/modprobe.d/tg5050-panfrost.conf" "$root/usr/lib/modprobe.d/"
+cp -a "$extra/lib/systemd/system/tg5050-panfrost.service" "$root/usr/lib/systemd/system/"
 ln -s ../tg5050-panfrost.service \
     "$root/usr/lib/systemd/system/multi-user.target.wants/tg5050-panfrost.service"
 ln -s tg5050-panfrost.service "$root/usr/lib/systemd/system/gpu-kmod.service"
