@@ -12,6 +12,11 @@ if ! id ultramarine >/dev/null 2>&1; then
 fi
 usermod --append --groups video,render,input,audio,wheel ultramarine
 install -d -o ultramarine -g ultramarine -m 0700 /home/ultramarine
+chown ultramarine:ultramarine /home/ultramarine/.bashrc /home/ultramarine/.bash_profile
+chmod 0644 /home/ultramarine/.bashrc /home/ultramarine/.bash_profile
+install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/zellij
+chown ultramarine:ultramarine /home/ultramarine/.config/zellij/config.kdl
+chmod 0644 /home/ultramarine/.config/zellij/config.kdl
 install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/labwc
 chown -R ultramarine:ultramarine /home/ultramarine/.config/labwc
 chmod 0644 /home/ultramarine/.config/labwc/rc.xml

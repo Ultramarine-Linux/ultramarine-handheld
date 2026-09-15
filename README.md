@@ -37,15 +37,8 @@ extension image, run `systemd-sysext refresh`, and reboot. The vendor
 extension's `/usr/lib/modprobe.d/` policy blacklists Panfrost only while that
 extension is active; the base image does not blacklist `mali_kbase`.
 
-The inverse Panfrost extension is built from the pinned `kmod-panfrost` RPM:
-
-```bash
-just --justfile mkosi.profiles/tg5050/justfile panfrost-sysext
-```
-
-Only one GPU extension should be present in `/var/lib/extensions/` at a time.
-Remove the inactive extension, run `systemd-sysext refresh`, and reboot before
-selecting the other stack.
+Panfrost is now built directly by the custom vendor-kernel RPM as a matching
+kernel module; a separate Panfrost sysext is not required.
 
 ## Source inputs vs. build outputs
 

@@ -1,6 +1,6 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        1.acl.de1%{?dist}
+Release:        1.tina.tg5050%{?dist}
 Summary:        Boot-tested custom vendor BSP kernel for TG5050
 License:        GPL-2.0-only AND LicenseRef-Proprietary
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
@@ -17,6 +17,8 @@ Source2: https://gitlab.com/tina5.0_aiot/lichee/device/config/a523/-/archive/%{a
 
 Patch0: 0001-pwm-base-fallback.patch
 Patch1: 0002-de350-channel-mode-fallback.patch
+
+
 
 BuildRequires: bc
 BuildRequires: bison
@@ -38,6 +40,23 @@ patches, enables loop/ACL/security support, and packages the resulting Image
 and matching modules. Android carrier and vendor boot-package assembly is
 handled separately by the profile image packer.
 
+%package core
+Summary:        Bootable core files for the TG5050 Tina kernel
+Provides:       kernel-uname-r = %{krel}
+Provides:       kernel-core-uname-r = %{krel}
+
+%description core
+The bootable Tina kernel Image and matching kernel configuration for the TG5050.
+
+%package modules
+Summary:        Complete loadable modules for the TG5050 Tina kernel
+Requires:       %{name}-core = %{version}-%{release}
+Provides:       kernel-modules-uname-r = %{krel}
+
+%description modules
+The complete loadable module tree and depmod metadata built against the matching
+TG5050 Tina kernel.
+
 %prep
 %setup -q -n linux-5.15-%{linux_commit} -a 1 -a 2
 mv bsp-%{bsp_commit} bsp
@@ -55,6 +74,7 @@ printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
 %patch 0 -p1 -d bsp
 %patch 1 -p1 -d bsp
 
+
 %build
 export ARCH=arm64
 export CROSS_COMPILE=aarch64-linux-gnu-
@@ -70,7 +90,12 @@ make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
 scripts/config --file out/.config \
     --enable BLK_DEV_LOOP --enable SQUASHFS --enable SQUASHFS_ZSTD \
     --enable FS_POSIX_ACL --enable EXT4_FS_POSIX_ACL \
-    --enable EXT4_FS_SECURITY --enable SECURITY
+    --enable EXT4_FS_SECURITY --enable SECURITY \
+    --disable MALI_MIDGARD --disable DRM_PANFROST --module AW_DRM_PANFROST \
+    --disable FRAMEBUFFER_CONSOLE --module ZSMALLOC --module ZRAM \
+    --enable CRYPTO_ZSTD --enable ZRAM_DEF_COMP_ZSTD --module EROFS_FS \
+    --enable AIC_WLAN_SUPPORT --module AIC8800_WLAN_SUPPORT \
+    --module AIC8800_BTLPM_SUPPORT
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
@@ -90,17 +115,36 @@ make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
 rm -f "%{buildroot}/usr/lib/modules/%{krel}/build" \
     "%{buildroot}/usr/lib/modules/%{krel}/source"
 install -D -m 0644 out/arch/arm64/boot/Image \
-    %{buildroot}/usr/lib/tg5050/bsp-custom/vmlinuz-%{krel}
+    %{buildroot}/boot/vmlinuz-%{krel}
 install -D -m 0644 out/.config \
-    %{buildroot}/usr/lib/tg5050/bsp-custom/kernel.config
+    %{buildroot}/usr/lib/modules/%{krel}/config
 
 %files
-/usr/lib/tg5050/bsp-custom/vmlinuz-%{krel}
-/usr/lib/tg5050/bsp-custom/kernel.config
-/usr/lib/modules/%{krel}
+
+%files core
+/boot/vmlinuz-%{krel}
+/usr/lib/modules/%{krel}/config
+
+%files modules
+/usr/lib/modules/%{krel}/kernel
+/usr/lib/modules/%{krel}/modules.*
+
+%post modules
+if [ -x %{_sbindir}/depmod ]; then
+    %{_sbindir}/depmod -a -m /usr/lib/modules %{krel} || :
+fi
+
+%postun modules
+if [ -x %{_sbindir}/depmod ]; then
+    %{_sbindir}/depmod -a -m /usr/lib/modules %{krel} || :
+fi
 
 %changelog
-* Tue Sep 15 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-1.acl.de1
+* Tue Sep 15 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-1.acl.de1.panfrost
 - Build the boot-tested Tina A523 kernel and modules from pinned source tarballs.
 - Apply PWM alias and DE350 channel-mode compatibility patches.
 - Enable loop, Ext4 ACL/security, and SquashFS support.
+- Disable proprietary Mali kbase and build Panfrost as a kernel module.
+- Keep fbcon disabled because the vendor fbdev cursor path panics during takeover.
+- Enable EROFS filesystem support.
+- Build the BSP AIC8800 modules against the matching kernel ABI.
