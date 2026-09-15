@@ -1,0 +1,29 @@
+diff --git a/drivers/pwm/pwm-sunxi.c b/drivers/pwm/pwm-sunxi.c
+index 7e4eba7..ec1091b 100644
+--- a/drivers/pwm/pwm-sunxi.c
++++ b/drivers/pwm/pwm-sunxi.c
+@@ -2051,6 +2051,7 @@ static int sunxi_pwm_resource_get(struct platform_device *pdev,
+ 	const char *st = NULL;
+ 	struct platform_device *pwm_pdevice;
+ 	struct device_node *sub_np;
++	u32 pwm_base;
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!res) {
+@@ -2066,8 +2067,14 @@ static int sunxi_pwm_resource_get(struct platform_device *pdev,
+ 
+ 	chip->pwm_num = of_alias_get_id(np, "pwm");
+ 	if (chip->pwm_num < 0) {
+-		sunxi_err(&pdev->dev, "failed to get alias id\n");
+-		return -EINVAL;
++		/* Older vendor DTBs omit the pwmN alias but provide pwm-base. */
++		if (of_property_read_u32(np, "pwm-base", &pwm_base)) {
++			sunxi_err(&pdev->dev, "failed to get alias id\n");
++			return -EINVAL;
++		}
++		chip->pwm_num = pwm_base;
++		sunxi_warn(&pdev->dev,
++			   "missing pwm alias, using pwm-base %u\n", pwm_base);
+ 	}
+ 
+ 	pwm_min_node = get_min_pwm_node_from_aliases(pdev);

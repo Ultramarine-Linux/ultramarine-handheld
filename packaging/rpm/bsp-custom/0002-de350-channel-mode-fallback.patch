@@ -1,0 +1,14 @@
+--- a/drivers/drm/sunxi_device/hardware/lowlevel_de/sunxi_de.c
++++ b/drivers/drm/sunxi_device/hardware/lowlevel_de/sunxi_de.c
+@@ -1084,6 +1084,11 @@
+ 	if (of_property_read_u32(node, "chn_cfg_mode", &engine->chn_cfg_mode)) {
+ 		DRM_INFO("[SUNXI-DE] chn_cfg_mode not found, used def val\n");
+ 	}
++	/* The shipped A523 DTB uses mode 2, which has no DE350 channel map. */
++	if (engine->match_data->version == 0x350 && engine->chn_cfg_mode == 2) {
++		DRM_INFO("[SUNXI-DE] remapping unsupported DE350 chn_cfg_mode 2 to 0\n");
++		engine->chn_cfg_mode = 0;
++	}
+ 
+ 	if (of_property_read_u32(node, "offline_mode", &engine->offline_mode.enable)) {
+ 		DRM_INFO("[SUNXI-DE] offline_mode not found, used def val\n");

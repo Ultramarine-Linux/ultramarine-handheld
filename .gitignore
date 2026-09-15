@@ -51,3 +51,4 @@ anda-build/rpm/
 AGENTS.md
 packaging/rpm/kernel/3401*.patch
 *.tar.*
+spikes/
