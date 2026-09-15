@@ -1,0 +1,87 @@
+--- a/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
++++ b/drivers/clk/sunxi-ng/ccu-sun8i-de2.c
+@@ -6,9 +6,11 @@
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/io.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/regmap.h>
+ #include <linux/reset.h>
+ 
+ #include "ccu_common.h"
+@@ -250,6 +252,28 @@
+ 	.num_resets	= ARRAY_SIZE(sun50i_h5_de2_resets),
+ };
+ 
++/* Restricted regmap exported to the shared DE33 plane driver. */
++#define SUN50I_DE33_CHN2CORE_REG	0x24
++#define SUN50I_DE33_PORT12CHN_REG	0x2c
++
++static const struct regmap_range sun8i_de2_ccu_regmap_accessible_ranges[] = {
++	regmap_reg_range(SUN50I_DE33_CHN2CORE_REG, SUN50I_DE33_PORT12CHN_REG),
++};
++
++static const struct regmap_access_table sun8i_de2_ccu_regmap_accessible_table = {
++	.yes_ranges = sun8i_de2_ccu_regmap_accessible_ranges,
++	.n_yes_ranges = ARRAY_SIZE(sun8i_de2_ccu_regmap_accessible_ranges),
++};
++
++static const struct regmap_config sun8i_de2_ccu_regmap_config = {
++	.reg_bits	= 32,
++	.val_bits	= 32,
++	.reg_stride	= 4,
++	.max_register	= SUN50I_DE33_PORT12CHN_REG,
++	.wr_table	= &sun8i_de2_ccu_regmap_accessible_table,
++	.rd_table	= &sun8i_de2_ccu_regmap_accessible_table,
++};
++
+ static int sunxi_de2_clk_probe(struct platform_device *pdev)
+ {
+ 	struct clk *bus_clk, *mod_clk;
+@@ -257,6 +281,7 @@
+ 	void __iomem *reg;
+ 	const struct sunxi_ccu_desc *ccu_desc;
+ 	int ret;
++	u32 de2tcon_mux;
+ 
+ 	ccu_desc = of_device_get_match_data(&pdev->dev);
+ 	if (!ccu_desc)
+@@ -310,12 +335,35 @@
+ 				    "allwinner,sun55i-a523-de33-clk")) {
+ 		writel(0, reg + 0x24);
+ 		writel(0x00a98210, reg + 0x28);
++		de2tcon_mux = readl(reg + 0x10);
++		de2tcon_mux &= ~0xf;
++		de2tcon_mux |= 1;
++		writel(de2tcon_mux, reg + 0x10);
++		writel(0x6000, reg + 0x50);
+ 	} else if (of_device_is_compatible(pdev->dev.of_node,
+ 					   "allwinner,sun50i-h616-de33-clk")) {
+ 		writel(0, reg + 0x24);
+ 		writel(0x0000a980, reg + 0x28);
+ 	}
+ 
++	if (of_device_is_compatible(pdev->dev.of_node,
++				    "allwinner,sun55i-a523-de33-clk") ||
++	    of_device_is_compatible(pdev->dev.of_node,
++				    "allwinner,sun50i-h616-de33-clk")) {
++		struct regmap *regmap;
++
++		regmap = devm_regmap_init_mmio(&pdev->dev, reg,
++					       &sun8i_de2_ccu_regmap_config);
++		if (IS_ERR(regmap)) {
++			ret = PTR_ERR(regmap);
++			goto err_assert_reset;
++		}
++
++		ret = of_syscon_register_regmap(dev_of_node(&pdev->dev), regmap);
++		if (ret)
++			goto err_assert_reset;
++	}
++
+ 	ret = devm_sunxi_ccu_probe(&pdev->dev, reg, ccu_desc);
+ 	if (ret)
+ 		goto err_assert_reset;

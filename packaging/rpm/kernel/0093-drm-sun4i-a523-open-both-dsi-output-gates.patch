@@ -1,0 +1,11 @@
+--- a/drivers/gpu/drm/sun4i/sun8i_tcon_top.c
++++ b/drivers/gpu/drm/sun4i/sun8i_tcon_top.c
+@@ -71,7 +71,7 @@
+ 	spin_lock_irqsave(&tcon_top->reg_lock, flags);
+ 	reg = readl(tcon_top->regs + TCON_TOP_GATE_SRC_REG);
+ 	reg &= ~TCON_TOP_TCON_DSI_GATE_MSK;
+-	reg |= BIT(TCON_TOP_TCON_DSI0_GATE + tcon);
++	reg |= TCON_TOP_TCON_DSI_GATE_MSK;
+ 	writel(reg, tcon_top->regs + TCON_TOP_GATE_SRC_REG);
+ 	dev_info(dev, "TCON-TOP DSI route tcon=%d GATE_SRC=%#x\n",
+ 		 tcon, readl(tcon_top->regs + TCON_TOP_GATE_SRC_REG));

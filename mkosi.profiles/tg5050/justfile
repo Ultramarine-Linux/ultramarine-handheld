@@ -4,7 +4,8 @@ profile := "tg5050"
 profile_dir := justfile_directory()
 project := profile_dir / "../.."
 build_dir := project / "build"
-env_source := profile_dir / "board/trimui-linux-bsp.env"
+env_source := profile_dir / "board/trimui-linux-mainline.env"
+env_bsp_source := profile_dir / "board/trimui-linux-bsp.env"
 env_image := build_dir / "env.img"
 env_file := build_dir / "uboot.env"
 env_bsp_file := build_dir / "uboot-bsp.env"
@@ -27,7 +28,7 @@ env:
 # separate file so the mainline U-Boot environment remains unchanged.
 bsp-env:
     mkdir -p {{build_dir}}
-    mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_source}}
+    mkenvimage -s 0x10000 -p 0x00 -o {{env_bsp_file}} {{env_bsp_source}}
     test "$(stat -c %s {{env_bsp_file}})" -eq 65536
     sha256sum {{env_bsp_file}}
 
@@ -43,7 +44,7 @@ stock-env:
 # image from the board-owned BSP environment source.
 bsp-sd-env:
     mkdir -p {{build_dir}}
-    mkenvimage -s 0x20000 -p 0x00 -o {{env_bsp_sd_file}} {{env_source}}
+    mkenvimage -s 0x20000 -p 0x00 -o {{env_bsp_sd_file}} {{env_bsp_source}}
     test "$(stat -c %s {{env_bsp_sd_file}})" -eq 131072
     sha256sum {{env_bsp_sd_file}}
 
