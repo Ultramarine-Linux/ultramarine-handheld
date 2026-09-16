@@ -1,0 +1,33 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] drm: sunxi: restore stock DE350 RCQ AHB trigger ordering
+
+The shipping TG5050 5.15.147 Image calls de_top_update_force_by_ahb()
+in sunxi_de_atomic_flush() after optional automatic frequency calculation
+and before the RCQ timer/direct request branch. The public Tina BSP has
+the exact call commented out.
+
+Keep this distinct from the old post-resume force-flush experiment and
+from the remaining DE-top DFS/RCQ-dispatch reconstruction. It restores
+only the direct, instruction-verified call ordering on the normal RCQ
+path; it does not affect disabled, force-sentinel, double-buffer, or
+non-RCQ paths.
+
+Stock evidence: vendor-kernel-5.15.147.Image SHA-256
+51b4b92047f82b7c52cf67e445618cc79e0863ee737359a5644b959d1dd9ec7b;
+sunxi_de_atomic_flush VA 0xffffffc008832500 calls
+de_top_update_force_by_ahb at 0xffffffc0088326a0.
+
+See build/vendor-patch-reconstruction/de-flush.md and
+packaging/rpm/bsp-custom/VENDOR-RECONSTRUCTION.md.
+
+--- a/drivers/drm/sunxi_device/hardware/lowlevel_de/sunxi_de.c
++++ b/drivers/drm/sunxi_device/hardware/lowlevel_de/sunxi_de.c
+@@ -728,7 +728,7 @@
+ 
+ 		if (engine->de_devfreq_auto)
+ 			sunxi_de_auto_calc_freq_and_apply(engine->display_out);
+-		// de_top_update_force_by_ahb(engine->top_hdl);
++		de_top_update_force_by_ahb(engine->top_hdl);
+ 
+ 		if (engine->match_data->rcq_wait_line)
+ 			rcq_update_timer_start(hwde);

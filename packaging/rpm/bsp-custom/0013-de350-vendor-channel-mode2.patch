@@ -1,0 +1,57 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] drm: sunxi: restore the shipping DE350 mode-2 channel split
+
+The public BSP has modes 0, 1 and 3 only. The shipping TG5050 Image
+(SHA256 51b4b92047f82b7c52cf67e445618cc79e0863ee737359a5644b959d1dd9ec7b)
+contains four modes per blender at de350_modes, VA 0xffffffc008d41a38.
+Each record is 88 bytes. Mode 2 is V0/V1/U0/U1/U2 on display 0 and
+V2/U3 on display 1; all other records match the public table.
+
+Recover the missing records rather than remapping mode 2 to mode 0.
+This patch requires removal of the old downstream mode-remapping patch.
+See tests/verify-vendor-de350.py and VENDOR-RECONSTRUCTION.md.
+
+--- a/drivers/drm/sunxi_device/hardware/lowlevel_de/bld/de_bld_platform.c
++++ b/drivers/drm/sunxi_device/hardware/lowlevel_de/bld/de_bld_platform.c
+@@ -31,8 +31,8 @@
+ 	struct de_bld_desc **bld;
+ };
+ 
+-/* 2 bld, 3 mode */
+-static const struct de_bld_port_mux_mode de350_modes[2][3] = {
++/* 2 bld, 4 mode */
++static const struct de_bld_port_mux_mode de350_modes[2][4] = {
+ 	{
+ 		{
+ 			.name = "v0v1v2u0u1u2",
+@@ -54,6 +54,16 @@
+ 			.channel_id[2] = UI_CHANNEL_ID(1),
+ 			.channel_id[3] = UI_CHANNEL_ID(2),
+ 		},
++		{
++			.name = "v0v1u0u1u2",
++			.mode_id = 2,
++			.channel_cnt = 5,
++			.channel_id[0] = VIDEO_CHANNEL_ID(0),
++			.channel_id[1] = VIDEO_CHANNEL_ID(1),
++			.channel_id[2] = UI_CHANNEL_ID(0),
++			.channel_id[3] = UI_CHANNEL_ID(1),
++			.channel_id[4] = UI_CHANNEL_ID(2),
++		},
+ 		{
+ 			.name = "v0v1u0u1",
+ 			.mode_id = 3,
+@@ -79,6 +89,13 @@
+ 			.channel_id[0] = VIDEO_CHANNEL_ID(2),
+ 			.channel_id[1] = VIDEO_CHANNEL_ID(1),
+ 			.channel_id[2] = UI_CHANNEL_ID(3),
++		},
++		{
++			.name = "v2u3",
++			.mode_id = 2,
++			.channel_cnt = 2,
++			.channel_id[0] = VIDEO_CHANNEL_ID(2),
++			.channel_id[1] = UI_CHANNEL_ID(3),
+ 		},
+ 		{
+ 			.name = "v2u2u3",

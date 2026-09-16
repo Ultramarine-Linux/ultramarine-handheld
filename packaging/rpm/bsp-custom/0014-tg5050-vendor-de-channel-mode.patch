@@ -1,0 +1,18 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] arm64: dts: select the shipping TG5050 DE channel split
+
+The pinned shipping kernel DTB selects chn_cfg_mode = <2>. Use that
+split now that the missing DE350 mode-2 records have been recovered.
+Keep this board-policy change separate from the driver table patch.
+
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -242,7 +242,7 @@
+ };
+ 
+ &de {
+-	chn_cfg_mode = <0>;
++	chn_cfg_mode = <2>;
+ 	status = "okay";
+ };
+ 

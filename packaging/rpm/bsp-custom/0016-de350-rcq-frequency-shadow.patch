@@ -1,0 +1,39 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] drm: sunxi: restore DE350 RCQ frequency shadow updates
+
+The shipping TG5050 Image writes the combined m/n divider value directly
+to byte 1 of the DE-top RCQ-control shadow word, then marks that block and
+its RCQ header dirty. The normal stock RCQ path copies this dirty word
+through the AHB trigger before issuing the request. The public BSP instead
+stashes deferred DFS values for later MMIO read-modify-write handling.
+
+Recovered from de_top_freq_div_apply at 0xffffffc008833f34.
+
+--- a/drivers/drm/sunxi_device/hardware/lowlevel_de/de_top.c
++++ b/drivers/drm/sunxi_device/hardware/lowlevel_de/de_top.c
+@@ -1217,21 +1218,11 @@
+ /* use ahb direct update, the hardware automatically refreshes to the real register at the next vsync */
+ int de_top_freq_div_apply(struct de_top_handle *hdl, unsigned int m, unsigned int n)
+ {
+-	// u8 __iomem *reg_base = hdl->cinfo.de_reg_base + hdl->private->dsc->rcq_ctl_offset;
+-	// u32 reg_val;
+-
+-	if (!hdl->private->dsc->support_dfs)
+-		return 0;
+-
+-	// stash dfs status
+-	hdl->private->dfs_en = true;
+-	hdl->private->dfs_n = n;
+-	hdl->private->dfs_m = m;
+-
+-	// reg_val = readl(reg_base);
+-	// reg_val = SET_BITS(8, 4, reg_val, m);
+-	// reg_val = SET_BITS(12, 4, reg_val, n);
+-	// writel(reg_val, reg_base);
++	/* Shipping Image 0xffffffc008833f34: shadow byte, then dirty flags. */
++	u8 *reg = (u8 *)get_de_top_reg(hdl->private);
++
++	reg[1] = (u8)((m & 0xf) | (n << 4));
++	de_top_set_block_dirty(hdl->private, DE_RCQ_CTL_REG_BLK, 1);
+ 	return 0;
+ }

@@ -1,0 +1,67 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] drm: sunxi: restore stock DE350 RCQ request dispatch
+
+The shipping DE350 RCQ dispatcher uses the DE busy bit and DE current-line
+state directly. When the output is busy it read-modify-writes only the
+update bit. When it is not busy but the current-line counter is active, it
+writes only the update value, deliberately clearing the remaining RCQ_CTL
+fields. If neither condition permits a request it retries for 10,000
+5-10us intervals.
+
+The public BSP instead routes through de_top_query_de_busy_state() and
+merges deferred DFS nibbles. That diverges from stock after the restored
+RCQ shadow-frequency update path.
+
+Recovered from shipping de_top_set_rcq_update at 0xffffffc008833c70.
+
+--- a/drivers/drm/sunxi_device/hardware/lowlevel_de/de_top.c
++++ b/drivers/drm/sunxi_device/hardware/lowlevel_de/de_top.c
+@@ -1098,36 +1098,38 @@
+ 	u32 offset = hdl->private->dsc->rcq_ctl_offset;
+ 	u8 __iomem *de_base = hdl->cinfo.de_reg_base;
+ 	u8 __iomem *reg_base = de_base + DE_REG_OFFSET(offset, disp, 0x40);
++	u8 __iomem *busy_base;
++	u8 __iomem *line_base;
+ 	u32 reg_val;
+ 	unsigned long flag;
+ 	int i = 0;
+ 
+-	/* skip busy check if calling from crash dump in interrupt or platform no need busy check */
++	/* Stock skips busy checks in interrupt context or without a busy register. */
+ 	if (!hdl->private->dsc->busy_offset || in_interrupt()) {
+ 		reg_val = readl(reg_base);
+ 		reg_val = SET_BITS(0, 1, reg_val, update ? 0x1 : 0x0);
+-		if (hdl->private->dfs_en) {
+-			reg_val = SET_BITS(8, 4, reg_val, hdl->private->dfs_m);
+-			reg_val = SET_BITS(12, 4, reg_val, hdl->private->dfs_n);
+-		}
+ 		writel(reg_val, reg_base);
+ 		return 0;
+ 	}
+ 
+ 	SUNXIDRM_TRACE_BEGIN(__func__);
++	busy_base = de_base + DE_REG_OFFSET(hdl->private->dsc->busy_offset, disp, 0x40);
++	line_base = de_base + DE_REG_OFFSET(hdl->private->dsc->de_cur_line, disp, 0x40);
+ 	do {
+ 		local_irq_save(flag);
+-		if (de_top_query_de_busy_state(hdl, disp)) {
++		if (readl(busy_base) & 0x10) {
+ 			reg_val = readl(reg_base);
+ 			reg_val = SET_BITS(0, 1, reg_val, update ? 0x1 : 0x0);
+-			if (hdl->private->dfs_en) {
+-				reg_val = SET_BITS(8, 4, reg_val, hdl->private->dfs_m);
+-				reg_val = SET_BITS(12, 4, reg_val, hdl->private->dfs_n);
+-			}
+ 			writel(reg_val, reg_base);
+ 			local_irq_restore(flag);
+ 			break;
+ 		}
++		if (readl(line_base) >> 16) {
++			/* Stock writes only update here, clearing other RCQ_CTL fields. */
++			writel(update ? 0x1 : 0x0, reg_base);
++			local_irq_restore(flag);
++			break;
++		}
+ 		local_irq_restore(flag);
+ 		usleep_range(5, 10);
+ 		i++;

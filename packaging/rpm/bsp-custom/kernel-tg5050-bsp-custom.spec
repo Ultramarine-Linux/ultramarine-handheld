@@ -1,8 +1,8 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        2.tina.tg5050%{?dist}
-Summary:        Boot-tested custom vendor BSP kernel for TG5050
-License:        GPL-2.0-only AND LicenseRef-Proprietary
+Release:        6.tina.tg5050%{?dist}
+Summary:        custom vendor BSP kernel for TG5050
+License:        GPL-2.0-only
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
 ExclusiveArch:  aarch64
 
@@ -16,7 +16,6 @@ Source1: https://gitlab.com/tina5.0_aiot/lichee/bsp/-/archive/%{bsp_commit}/bsp-
 Source2: https://gitlab.com/tina5.0_aiot/lichee/device/config/a523/-/archive/%{a523_commit}/a523-%{a523_commit}.tar.gz
 
 Patch0: 0001-pwm-base-fallback.patch
-Patch1: 0002-de350-channel-mode-fallback.patch
 Patch2: 0003-tg5050-uart-gamepad-pins.patch
 Patch3: 0004-tg5050-pwm-fan-vibrator.patch
 Patch4: 0005-tg5050-ledc-stick-rings.patch
@@ -25,7 +24,12 @@ Patch6: 0007-tg5050-pad-power-regulators.patch
 Patch7: 0008-tg5050-lradc-home-key.patch
 Patch8: 0009-tg5050-fn-gpio-key.patch
 # 0010's speculative post-resume force flush is deliberately not applied.
+Patch9: 0013-de350-vendor-channel-mode2.patch
 Patch10: 0011-tg5050-panel-reset-init.patch
+Patch11: 0014-tg5050-vendor-de-channel-mode.patch
+Patch12: 0015-de350-rcq-force-ahb-trigger.patch
+Patch13: 0016-de350-rcq-frequency-shadow.patch
+Patch14: 0017-de350-rcq-request-dispatch.patch
 
 
 
@@ -79,7 +83,6 @@ cp -a bsp/include/dt-bindings/. include/dt-bindings/
 printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
     '#define AW_BSP_VERSION "aiot-linux-v1.5.0"' '#endif' > include/sunxi-autogen.h
 %patch 0 -p1 -d bsp
-%patch 1 -p1 -d bsp
 %patch 2 -p1 -d board
 %patch 3 -p1 -d board
 %patch 4 -p1 -d board
@@ -87,7 +90,12 @@ printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
 %patch 6 -p1 -d board
 %patch 7 -p1 -d board
 %patch 8 -p1 -d board
+%patch 9 -p1 -d bsp -F 0
 %patch 10 -p1 -d board -F 0
+%patch 11 -p1 -d board -F 0
+%patch 12 -p1 -d bsp -F 0
+%patch 13 -p1 -d bsp -F 0
+%patch 14 -p1 -d bsp -F 0
 cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
     arch/arm64/boot/dts/sunxi/board.dts
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += board.dtb' >> \
