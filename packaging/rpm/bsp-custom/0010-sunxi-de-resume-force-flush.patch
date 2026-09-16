@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@fyralabs.com>
+Date: Wed, 16 Sep 2026 03:00:00 +0700
+Subject: [PATCH] drm: sunxi: force DE register flush after system resume
+
+The vendor DRM suspend/resume helper restores the CRTC state and re-enables
+DSI, but the display engine can retain disabled or stale shadow-register state
+across deep suspend. A subsequent userspace modeset may leave the connector
+logically active while the DE backend remains disabled.
+
+Reuse the driver's existing FORCE_ATOMIC_FLUSH path for each enabled CRTC
+immediately after the generic DRM resume helper restores modes. This updates
+the DE registers without changing userspace ownership of the DRM device.
+
+Signed-off-by: Cappy Ishihara <cappy@fyralabs.com>
+---
+ drivers/drm/sunxi_drm_crtc.c | 13 +++++++++++++
+ drivers/drm/sunxi_drm_crtc.h |  1 +
+ drivers/drm/sunxi_drm_drv.c  |  6 +++++-
+ 3 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/drm/sunxi_drm_crtc.c b/drivers/drm/sunxi_drm_crtc.c
+--- a/drivers/drm/sunxi_drm_crtc.c
++++ b/drivers/drm/sunxi_drm_crtc.c
+@@ -2143,6 +2143,19 @@
+ 	DRM_DEBUG_DRIVER("%s finish\n", __func__);
+ }
+ 
++void sunxi_drm_crtc_force_de_flush(struct drm_device *drm)
++{
++	struct drm_crtc *crtc;
++
++	drm_for_each_crtc(crtc, drm) {
++		struct sunxi_drm_crtc *scrtc = to_sunxi_crtc(crtc);
++
++		if (scrtc->enabled)
++			sunxi_de_atomic_flush(scrtc->sunxi_de, NULL,
++					      (void *)FORCE_ATOMIC_FLUSH);
++	}
++}
++
+ static int sunxi_drm_crtc_enable_vblank(struct drm_crtc *crtc)
+ {
+ 	struct sunxi_drm_crtc *scrtc = to_sunxi_crtc(crtc);
+--- a/drivers/drm/sunxi_drm_crtc.h
++++ b/drivers/drm/sunxi_drm_crtc.h
+@@ -76,6 +76,7 @@
+ #define to_sunxi_crtc_state(x) container_of(x, struct sunxi_crtc_state, base)
+ 
+ irqreturn_t sunxi_crtc_event_proc(int irq, void *crtc);
++void sunxi_drm_crtc_force_de_flush(struct drm_device *drm);
+ int sunxi_drm_crtc_get_hw_id(struct drm_crtc *crtc);
+ unsigned int sunxi_drm_crtc_get_clk_freq(struct drm_crtc *crtc);
+ void sunxi_plane_print_state(struct drm_printer *p,
+--- a/drivers/drm/sunxi_drm_drv.c
++++ b/drivers/drm/sunxi_drm_drv.c
+@@ -1378,8 +1378,12 @@
+ static int sunxi_drm_resume(struct device *dev)
+ {
+ 	struct drm_device *drm = dev_get_drvdata(dev);
+-
+-	return drm_mode_config_helper_resume(drm);
++	int ret;
++
++	ret = drm_mode_config_helper_resume(drm);
++	if (!ret)
++		sunxi_drm_crtc_force_de_flush(drm);
++	return ret;
+ }
+ #endif
+ 

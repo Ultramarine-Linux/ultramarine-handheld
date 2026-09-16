@@ -50,7 +50,7 @@ bsp-sd-env:
 
 # Build the BSP userspace as a direct root tree. The vendor kernel and DTB are
 # carried by the p3 Android-style boot container, so p4 needs only the root.
-bsp-sd-rootfs:
+bsp-sd-rootfs: bsp-custom-rpms
     sudo rm -rf {{build_dir}}/ultramarine-rootfs
     sudo mkosi --directory={{project}} --profile={{profile}},bsp \
         --format=directory --output=ultramarine-rootfs \
@@ -67,6 +67,54 @@ bsp-sd-rootfs-image: bsp-sd-rootfs
 # Build the vendor-contract four-partition BSP SD image without changing the
 # existing mainline image target.
 bsp-sd-image: bsp-sd-env bsp-sd-rootfs-image
+    {{profile_dir}}/image/assemble-sd-image
+
+# Build the source-owned custom BSP kernel and matching module RPMs. Andaman
+# stages the binary RPMs in build/anda-rpms for both mkosi and carrier staging.
+bsp-custom-rpms:
+    sudo dnf builddep --assumeyes {{project}}/packaging/rpm/bsp-custom/kernel-tg5050-bsp-custom.spec
+    mkdir -p {{build_dir}}/anda-rpms
+    rm -f {{build_dir}}/anda-rpms/kernel-tg5050-bsp-custom*.rpm
+    cd {{project}} && anda build -rrpmbuild --rpm-target aarch64 \
+        packaging/rpm/bsp-custom/pkg
+    for rpm in {{project}}/anda-build/rpm/rpms/kernel-tg5050-bsp-custom*.rpm; do \
+        test -f "$rpm"; install -m 0644 "$rpm" {{build_dir}}/anda-rpms/; \
+    done
+
+# Repack the vendor Android v0 p3 carrier and raw vendor boot package from
+# explicit kernel/DTB artifacts. The DTB is placed into the fixed sunxi-package
+# slot and its checksum is recomputed; the p3 ramdisk is removed while its
+# original header/layout is retained.
+bsp-vendor-carrier: bsp-custom-rpms
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -n "${TG5050_VENDOR_KERNEL:-}" || -n "${TG5050_VENDOR_DTB:-}" ]]; then
+        kernel="${TG5050_VENDOR_KERNEL:?TG5050_VENDOR_KERNEL must be paired with TG5050_VENDOR_DTB}"
+        dtb="${TG5050_VENDOR_DTB:?TG5050_VENDOR_DTB must be paired with TG5050_VENDOR_KERNEL}"
+    else
+        rm -rf {{build_dir}}/bsp-custom-artifacts
+        {{profile_dir}}/image/stage-bsp-custom-rpm \
+            {{quote(build_dir / "anda-rpms")}} \
+            {{quote(build_dir / "bsp-custom-artifacts")}}
+        kernel="{{build_dir}}/bsp-custom-artifacts/Image"
+        dtb="{{build_dir}}/bsp-custom-artifacts/board.dtb"
+    fi
+    test -f "$kernel" -a -f "$dtb"
+    mkdir -p {{build_dir}}/vendor-carrier
+    python3 {{profile_dir}}/image/package-bsp-kernel.py \
+        --source-p3 {{profile_dir}}/board/vendor/sd/p3-kernel-container.img \
+        --kernel "$kernel" \
+        --source-boot-package {{profile_dir}}/board/vendor/sd/boot-package.fex \
+        --dtb "$dtb" \
+        --output-p3 {{build_dir}}/vendor-carrier/p3-kernel.img \
+        --output-boot-package {{build_dir}}/vendor-carrier/boot-package.fex
+    sha256sum {{build_dir}}/vendor-carrier/p3-kernel.img {{build_dir}}/vendor-carrier/boot-package.fex
+
+# Build a ready-to-flash vendor-contract raw image using the repacked carrier.
+# The normal BSP rootfs/image prerequisites remain explicit and reproducible.
+bsp-vendor-image: bsp-vendor-carrier bsp-sd-env bsp-sd-rootfs-image
+    TG5050_P3_IMAGE={{build_dir}}/vendor-carrier/p3-kernel.img \
+    TG5050_BOOT_PACKAGE={{build_dir}}/vendor-carrier/boot-package.fex \
     {{profile_dir}}/image/assemble-sd-image
 
 # The environment is now an optional file on the p1 ESP; no environment

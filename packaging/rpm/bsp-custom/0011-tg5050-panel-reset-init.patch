@@ -1,0 +1,68 @@
+From: Cappy Ishihara <cappy@fyralabs.com>
+Subject: [PATCH] arm64: dts: restore TG5050 panel reset and initialization
+
+The generic pro3 board only sends sleep-out/display-on and has no reset
+GPIO. Timing correction alone can inherit U-Boot scanout but cannot
+reinitialize the panel after power-down or a warm restart.
+
+Restore PD22, the 120 ms reset delay, and all 28 initialization commands
+from the shipping TG5050 kernel DTB. Preserve the vendor driver's physical
+low/high reset semantics (GPIO_ACTIVE_HIGH), rather than inverting them.
+The existing panel prepare callback executes this sequence after reset;
+no blanket display-engine force flush is needed for this board fix.
+
+Reference: mkosi.profiles/tg5050/board/boot-artifacts/vendor-kernel.dtb
+SHA256: 8226f3805d991cc3dda31e621190844b4e338fb6bb28402ecd17b97524af5f9f
+Only the kernel GPIO binding is copied, not U-Boot's vendor cell format.
+Physical warm-reboot and suspend/resume validation remains required.
+
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -171,7 +171,9 @@
+ 		status = "okay";
+ 		reg = <0>;
+ 		reset-num = <1>;
+-		reset-delay-ms = <20>;
++		reset-delay-ms = <120>;
++		/* The vendor driver pulses physical low, then high. */
++		reset-gpios = <&pio PD 22 GPIO_ACTIVE_HIGH>;
+ 		power0-supply = <&reg_cldo4>;
+ 		power1-supply = <&reg_cldo1>;
+ 		backlight = <&backlight0>;
+@@ -180,8 +182,34 @@
+ 		dsi,lanes = <4>;
+ 		dsi,format = <0>;
+ 		panel-init-sequence = [
+-			05 78 01 11
+-			05 14 01 29
++			05 0a 01 01
++			15 00 02 36 14
++			39 00 03 e0 ab ba
++			39 00 03 e1 ba ab
++			39 00 05 b1 10 01 47 ff
++			39 00 07 b2 09 0e 01 50 50 14
++			39 00 04 b3 56 d2 00
++			39 00 04 b4 7a 60 04
++			39 00 08 b6 be 00 00 10 00 10 00
++			39 00 08 b8 05 12 29 49 48 00 00
++			39 00 27 b9 7c 6a 5e 52 4f 41 45 31 4c 4c 4c 67 53 58 4d 48 35 1d 06 7c 6a 5e 52 4f 41 45 31 4c 4c 4c 67 53 58 4d 48 35 1d 06
++			39 00 11 c0 54 32 23 45 33 33 33 33 10 04 90 04 0f 00 00 c0
++			39 00 0b c1 32 94 02 87 10 04 90 04 54 00
++			39 00 0d c2 73 09 08 89 08 11 22 33 44 82 18 00
++			39 00 17 c3 8b 49 13 11 0f 0d 00 00 00 02 02 02 02 02 02 02 02 02 05 07 02 02
++			39 00 17 c4 0a 08 12 10 0e 0c 00 00 00 02 02 02 02 02 00 02 02 02 04 06 02 02
++			39 00 04 c5 e8 85 76
++			39 00 03 c6 2a 2a
++			39 00 07 c8 21 00 32 40 44 16
++			39 00 03 ca cb 43
++			39 00 09 cd 0e 32 32 20 19 6b 06 b3
++			39 00 05 d2 e3 2b 38 00
++			39 00 0c d4 00 01 00 0e 04 44 08 10 10 4f 00
++			39 00 09 e6 00 01 ff ff ff ff ff ff
++			39 00 06 f0 32 05 20 00 ff
++			15 00 02 f3 00
++			05 32 01 11
++			05 78 01 29
+ 		];
+ 
+ 		panel-exit-sequence = [

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The handheld has no practical interactive first-boot account setup. Create
-# the account used by greetd/Sway while the image is being assembled.
+# the account used by the Sway appliance session while the image is being assembled.
 for group in video render input audio; do
     getent group "$group" >/dev/null || groupadd --system "$group"
 done
@@ -18,10 +18,9 @@ chmod 0644 /home/ultramarine/.bashrc /home/ultramarine/.bash_profile
 install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/zellij
 chown ultramarine:ultramarine /home/ultramarine/.config/zellij/config.kdl
 chmod 0644 /home/ultramarine/.config/zellij/config.kdl
-install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/labwc
-chown -R ultramarine:ultramarine /home/ultramarine/.config/labwc
-chmod 0644 /home/ultramarine/.config/labwc/rc.xml
-chmod 0755 /home/ultramarine/.config/labwc/autostart
+install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/.config/sway
+chown -R ultramarine:ultramarine /home/ultramarine/.config/sway
+chmod 0644 /home/ultramarine/.config/sway/config
 
 # ES-DE does not include this SDL mapping for the trimui_inputd virtual pad.
 install -d -o ultramarine -g ultramarine -m 0755 /home/ultramarine/ES-DE/controllers

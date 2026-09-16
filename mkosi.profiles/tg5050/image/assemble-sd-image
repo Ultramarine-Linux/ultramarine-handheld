@@ -12,9 +12,9 @@ rootfs_image="$build/ultramarine-rootfs.ext4"
 env="$build/uboot-bsp-sd.env"
 initrd="$build/ultramarine-trimui-bsp.initrd"
 p3_source="$profile/board/vendor/sd/p3-kernel-container.img"
-p3_image="$build/p3-kernel-only.img"
+p3_image="${TG5050_P3_IMAGE:-$build/p3-kernel-only.img}"
 boot0="$profile/board/vendor/stock/boot0.img"
-boot_package="$profile/board/vendor/sd/boot-package.fex"
+boot_package="${TG5050_BOOT_PACKAGE:-$profile/board/vendor/sd/boot-package.fex}"
 seed="$profile/image/layout-6g-p4-rootfs.seed.sfdisk"
 repart="$profile/image/repart-p4-rootfs"
 assets="$build/sd-image-assets"
@@ -26,7 +26,11 @@ done
 
 # Keep the vendor Android boot container's kernel/header layout, but disable
 # its embedded ramdisk. The external p1 initrd is the only ramdisk passed to
-# bootm for this BSP image.
+# bootm for this BSP image. A caller may provide a pre-repacked p3 carrier;
+# this is how the vendor-kernel just recipe feeds the final image assembler.
+if [[ -n "${TG5050_P3_IMAGE:-}" ]]; then
+    test -f "$p3_image"
+else
 python3 - "$p3_source" "$p3_image" <<'PY'
 import pathlib
 import struct
@@ -44,6 +48,7 @@ struct.pack_into("<I", data, 16, 0)
 dst.write_bytes(data)
 print(f"disabled p3 embedded ramdisk: {ramdisk_size} -> 0")
 PY
+fi
 rm -rf "$assets"
 mkdir -p "$assets/p1-minimal"
 cp -a "$profile/board/vendor/sd/boot-resource/." "$assets/p1-minimal/"

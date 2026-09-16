@@ -1,0 +1,24 @@
+# Minimal controller-first Sway session for the TG5050.
+# Keep every application in a floating container: there is no tiling UI on
+# this handheld, and Sway IPC remains available for future integrations.
+output DSI-1 transform 270
+
+default_border none
+default_floating_border none
+focus_follows_mouse no
+mouse_warping none
+
+# Sway has no bar or decorations in this appliance session. Do not declare a
+# bar at all: even `mode invisible` starts a swaybar process.
+output * bg #000000 solid_color
+
+# Native Wayland and Xwayland windows both become floating.
+for_window [app_id=".*"] floating enable
+for_window [class=".*"] floating enable
+for_window [app_id="foot"] fullscreen enable
+
+# Import Sway's dynamic environment before starting session-bound services.
+# Keep these systemctl calls synchronous: the target must not start before the
+# compositor socket variables have reached the user manager.
+exec "systemctl --user set-environment WAYLAND_DISPLAY=wayland-1; systemctl --user import-environment SWAYSOCK; systemctl --user start sway-session.target"
+exec "swaymsg -t subscribe '[\"shutdown\"]' && systemctl --user stop sway-session.target"

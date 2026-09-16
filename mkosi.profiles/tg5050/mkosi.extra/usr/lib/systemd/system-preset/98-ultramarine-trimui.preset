@@ -4,3 +4,4 @@ enable serial-getty@ttyGS0.service
 enable wpa_supplicant.service
 enable sshd.service
 enable systemd-timesyncd.service
+enable systemd-repart.service

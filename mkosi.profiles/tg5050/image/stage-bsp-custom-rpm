@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Extract the source-built custom BSP kernel payload from its RPM.
+set -euo pipefail
+
+rpm_dir=$(realpath "${1:?usage: stage-bsp-custom-rpm <rpm-dir> <output-dir>}")
+out=$(realpath -m "${2:?usage: stage-bsp-custom-rpm <rpm-dir> <output-dir>}")
+mapfile -t rpms < <(find "$rpm_dir" -maxdepth 1 -type f -name 'kernel-tg5050-bsp-custom-core-*.rpm' -print)
+(( ${#rpms[@]} == 1 )) || {
+    printf 'expected exactly one custom BSP core RPM in %s, found %d\n' "$rpm_dir" "${#rpms[@]}" >&2
+    exit 1
+}
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+rpm2cpio "${rpms[0]}" | cpio --extract --directory="$work" --make-directories --quiet
+
+kernel="$work/boot/vmlinuz-5.15.147"
+dtb="$work/usr/lib/tg5050/bsp/sun55i-a523-trimui-smart-pro-s.dtb"
+test -f "$kernel" || { echo "missing custom BSP kernel: $kernel" >&2; exit 1; }
+test -f "$dtb" || { echo "missing custom BSP DTB: $dtb" >&2; exit 1; }
+
+rm -rf "$out"
+mkdir -p "$out"
+install -m 0644 "$kernel" "$out/Image"
+install -m 0644 "$dtb" "$out/board.dtb"
+sha256sum "$out/Image" "$out/board.dtb" > "$out/SHA256SUMS"
+printf 'staged source-built custom BSP artifacts in %s\n' "$out"

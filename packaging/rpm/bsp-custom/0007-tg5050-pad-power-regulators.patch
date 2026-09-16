@@ -1,0 +1,52 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -35,6 +35,49 @@
+ 		enable-active-high;
+ 	};
+ 
++	reg_5v_en: regulator-5v-en {
++		compatible = "regulator-fixed";
++		regulator-name = "sideboard-5v-en";
++		gpio = <&pio PK 15 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	reg_pad_left: regulator-pad-left {
++		compatible = "regulator-fixed";
++		regulator-name = "leftpad-en";
++		gpio = <&pio PK 12 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	reg_pad_right: regulator-pad-right {
++		compatible = "regulator-fixed";
++		regulator-name = "rightpad-en";
++		gpio = <&pio PK 16 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	reg_led_array: regulator-led-array {
++		compatible = "regulator-fixed";
++		regulator-name = "ledarray-en";
++		gpio = <&pio PK 18 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	reg_vibra_pwr: regulator-vibra-pwr {
++		compatible = "regulator-fixed";
++		regulator-name = "vibra-pwr";
++		gpio = <&pio PH 12 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
+ 	standby_param: standby_param {
+ 		vdd-cpu = <0x00000001>;
+ 		vdd-cpub = <0x00000001>;

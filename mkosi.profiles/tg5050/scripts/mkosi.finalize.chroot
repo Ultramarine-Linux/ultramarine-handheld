@@ -11,20 +11,25 @@ systemctl enable wpa_supplicant.service
 # a unique host identity on each flashed device.
 systemctl enable sshd.service
 systemctl enable systemd-resolved.service
+mkdir -p /etc/systemd/system/sysinit.target.wants
+ln -sfn /usr/lib/systemd/system/systemd-repart.service \
+    /etc/systemd/system/sysinit.target.wants/systemd-repart.service
 systemctl enable trimui-inputd.service
 systemctl enable trimui-power-toggle.service
 systemctl enable fancontrol.service
 systemctl enable trimui-audio-mixer.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
-chmod 0755 /home/ultramarine/.config/labwc/autostart
+chmod 0644 /home/ultramarine/.config/sway/config
 
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
-# greetd, which creates and activates the graphical PAM/logind session.
+# the autologin Sway/logind session.
 systemctl mask kmscon.service kmsconvt@.service
 systemctl disable ultramarine-kms-journal.service
 systemctl mask getty@tty1.service
-# greetd owns the graphical login session for both boot-stack profiles.
-systemctl enable greetd.service
+# tty1 autologin creates the PAM/logind seat; the login shell starts the Sway
+# user service from .bash_profile. Do not use a display manager on this image.
+systemctl unmask getty@tty1.service 2>/dev/null || true
+systemctl enable getty@tty1.service
 systemctl mask NetworkManager-wait-online.service
 # This appliance is preconfigured; firstboot would wait for interactive input
 # that the handheld cannot provide during early bring-up.

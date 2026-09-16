@@ -1,8 +1,6 @@
 [Unit]
 Description=Marina remote Foot/Zellij console
-After=marina-session.service
-PartOf=marina-session.service
-After=graphical-session.target
+PartOf=sway-session.target
 
 [Service]
 Type=simple
@@ -17,4 +15,4 @@ KillMode=mixed
 
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=sway-session.target

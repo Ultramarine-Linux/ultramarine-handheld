@@ -1,0 +1,11 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -915,7 +915,7 @@
+ 
+ &lradc {
+ 	key_cnt = <3>;
+-	key0 = <475 0x7372>;
++	key0 = <410 0xac>;
+ 	key1 = <646 0x73>;
+ 	key2 = <900 0x72>;
+ 	key_debounce;

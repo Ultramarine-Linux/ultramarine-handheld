@@ -1,6 +1,6 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        1.tina.tg5050%{?dist}
+Release:        2.tina.tg5050%{?dist}
 Summary:        Boot-tested custom vendor BSP kernel for TG5050
 License:        GPL-2.0-only AND LicenseRef-Proprietary
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
@@ -17,6 +17,15 @@ Source2: https://gitlab.com/tina5.0_aiot/lichee/device/config/a523/-/archive/%{a
 
 Patch0: 0001-pwm-base-fallback.patch
 Patch1: 0002-de350-channel-mode-fallback.patch
+Patch2: 0003-tg5050-uart-gamepad-pins.patch
+Patch3: 0004-tg5050-pwm-fan-vibrator.patch
+Patch4: 0005-tg5050-ledc-stick-rings.patch
+Patch5: 0006-tg5050-panel-720x1280-timing.patch
+Patch6: 0007-tg5050-pad-power-regulators.patch
+Patch7: 0008-tg5050-lradc-home-key.patch
+Patch8: 0009-tg5050-fn-gpio-key.patch
+# 0010's speculative post-resume force flush is deliberately not applied.
+Patch10: 0011-tg5050-panel-reset-init.patch
 
 
 
@@ -66,13 +75,24 @@ cp board/configs/pro3_linux_aiot/linux-5.15/bsp_defconfig \
     arch/arm64/configs/pro3_defconfig
 cp bsp/configs/linux-5.15/sun55iw3p1.dtsi \
     arch/arm64/boot/dts/sunxi/sun55iw3p1.dtsi
-cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
-    arch/arm64/boot/dts/sunxi/board.dts
 cp -a bsp/include/dt-bindings/. include/dt-bindings/
 printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
     '#define AW_BSP_VERSION "aiot-linux-v1.5.0"' '#endif' > include/sunxi-autogen.h
 %patch 0 -p1 -d bsp
 %patch 1 -p1 -d bsp
+%patch 2 -p1 -d board
+%patch 3 -p1 -d board
+%patch 4 -p1 -d board
+%patch 5 -p1 -d board
+%patch 6 -p1 -d board
+%patch 7 -p1 -d board
+%patch 8 -p1 -d board
+%patch 10 -p1 -d board -F 0
+cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
+    arch/arm64/boot/dts/sunxi/board.dts
+printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += board.dtb' >> \
+    arch/arm64/boot/dts/sunxi/Makefile
+printf '%s\n' 'subdir-y += sunxi' >> arch/arm64/boot/dts/Makefile
 
 
 %build
@@ -94,13 +114,18 @@ scripts/config --file out/.config \
     --disable MALI_MIDGARD --disable DRM_PANFROST --module AW_DRM_PANFROST \
     --disable FRAMEBUFFER_CONSOLE --module ZSMALLOC --module ZRAM \
     --enable CRYPTO_ZSTD --enable ZRAM_DEF_COMP_ZSTD --module EROFS_FS \
+    --enable INPUT_MISC --enable INPUT_EVDEV --module INPUT_UINPUT \
+    --module INPUT_PWM_VIBRA --enable HWMON --module SENSORS_PWM_FAN \
+    --enable AW_LEDC \
+    --enable GPIO_SYSFS \
+    --enable KEYBOARD_GPIO \
     --enable AIC_WLAN_SUPPORT --module AIC8800_WLAN_SUPPORT \
     --module AIC8800_BTLPM_SUPPORT
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION= \
-    -j%{?_smp_build_ncpus}%{!?_smp_build_ncpus:1} Image modules
+    -j%{?_smp_build_ncpus}%{!?_smp_build_ncpus:1} Image modules dtbs
 
 %install
 rm -rf %{buildroot}
@@ -118,12 +143,15 @@ install -D -m 0644 out/arch/arm64/boot/Image \
     %{buildroot}/boot/vmlinuz-%{krel}
 install -D -m 0644 out/.config \
     %{buildroot}/usr/lib/modules/%{krel}/config
+install -D -m 0644 out/arch/arm64/boot/dts/sunxi/board.dtb \
+    %{buildroot}/usr/lib/tg5050/bsp/sun55i-a523-trimui-smart-pro-s.dtb
 
 %files
 
 %files core
 /boot/vmlinuz-%{krel}
 /usr/lib/modules/%{krel}/config
+/usr/lib/tg5050/bsp/sun55i-a523-trimui-smart-pro-s.dtb
 
 %files modules
 /usr/lib/modules/%{krel}/kernel
