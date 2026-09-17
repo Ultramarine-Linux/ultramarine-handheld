@@ -1,0 +1,10 @@
+[Unit]
+Description=Serialized Marina tuned profile worker
+After=tuned.service
+Wants=tuned.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/marina-tuned-profile --worker
+Restart=on-failure
+RestartSec=1

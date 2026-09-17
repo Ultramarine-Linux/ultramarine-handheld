@@ -1,0 +1,65 @@
+--- a/configs/linux-5.15/sun55iw3p1.dtsi
++++ b/configs/linux-5.15/sun55iw3p1.dtsi
+@@ -964,17 +964,17 @@
+ 
+ 			cpul_trips: trips {
+ 				cpul_threshold: trip-point@0 {
++					temperature = <60000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpul_target: trip-point@1 {
+ 					temperature = <70000>;
+ 					type = "passive";
+ 					hysteresis = <0>;
+ 				};
+-				cpul_target: trip-point@1 {
+-					temperature = <90000>;
+-					type = "passive";
+-					hysteresis = <0>;
+-				};
+ 				cpul_crit: cpu_crit@0 {
+-					temperature = <110000>;
++					temperature = <105000>;
+ 					type = "critical";
+ 					hysteresis = <0>;
+ 				};
+@@ -999,17 +999,17 @@
+ 
+ 			cpub_trips: trips {
+ 				cpub_threshold: trip-point@0 {
++					temperature = <60000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpub_target: trip-point@1 {
+ 					temperature = <70000>;
+ 					type = "passive";
+ 					hysteresis = <0>;
+ 				};
+-				cpub_target: trip-point@1 {
+-					temperature = <90000>;
+-					type = "passive";
+-					hysteresis = <0>;
+-				};
+ 				cpub_crit: cpu_crit@0 {
+-					temperature = <110000>;
++					temperature = <105000>;
+ 					type = "critical";
+ 					hysteresis = <0>;
+ 				};
+@@ -1039,12 +1039,12 @@
+ 					hysteresis = <0>;
+ 				};
+ 				gpu_target: trip-point@1 {
+-					temperature = <90000>;
++					temperature = <70000>;
+ 					type = "passive";
+ 					hysteresis = <0>;
+ 				};
+ 				gpu_crit: gpu_crit@0 {
+-					temperature = <110000>;
++					temperature = <105000>;
+ 					type = "critical";
+ 					hysteresis = <0>;
+ 				};

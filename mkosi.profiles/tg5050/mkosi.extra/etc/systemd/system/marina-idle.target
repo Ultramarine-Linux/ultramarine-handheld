@@ -1,0 +1,7 @@
+[Unit]
+Description=Marina graphical session idle state
+Wants=user@1000.service
+Wants=graphical.slice
+After=user@1000.service graphical.slice
+Wants=marina-graphical-idle.service
+Conflicts=marina-active.target

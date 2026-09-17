@@ -237,30 +237,17 @@ defaults.
 
 ## Fan and thermal control
 
-Knulli's A527 reference starts `knulli-fan-control` from
-`board/allwinner/a527/fsoverlay/etc/init.d/S06fan-control-daemon`. For the
-Smart Pro S it writes the thermal cooling state:
-
-```text
-/sys/class/thermal/cooling_device0/cur_state
-```
-
-with a range of `0..31`, using the hottest `cpu*`/`cluster*` thermal zone.
-Its default temperature ramp is:
-
-```text
-below 30 C: fan off
-35 C:       minimum ramp point
-80 C:       maximum ramp point
-```
-
-The vendor `pwm-fan` is also exposed through hwmon as `pwmfan` / `pwm1`, while
-the big-cluster thermal zone is a direct thermal-sysfs input. Ultramarine ships
-the standard `lm_sensors` `fancontrol.service` with an absolute-path
-configuration mapping those paths: 35°C stops the fan, 80°C reaches PWM 255,
-and a stopped fan restarts at PWM 180. There is no tachometer, so `FCFANS` is
-intentionally empty. `pwmconfig` remains useful for an interactive physical
-minimum-start test if the curve needs further tuning.
+The vendor `pwm-fan` is exposed through hwmon as `pwmfan` / `pwm1`, while the
+big-cluster thermal zone is a direct thermal-sysfs input. Ultramarine uses the
+standard `lm_sensors` `fancontrol.service` with an absolute-path configuration
+mapping those paths. Physical testing found a non-linear fan-controller
+threshold rather than inverted PWM: raw PWM 1..100 is the fan-off range, raw
+PWM 100 is the minimum reliable startup value, and raw PWM 255 is maximum
+drive.
+The current curve stops below 35°C, ramps to the maximum at 60°C, and uses
+100 for both startup and minimum running PWM. There is no tachometer, so
+`FCFANS` is intentionally empty. `pwmconfig` remains useful for interactive
+physical curve testing.
 
 ## Power, display, and other I/O
 

@@ -1,0 +1,58 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -644,5 +644,5 @@
+ 
+ 	twi3_pins_default: twi3@0 {
+-		pins = "PE3", "PE4";
++		pins = "PH12", "PH13";
+ 		function = "twi3";
+ 		drive-strength = <10>;
+@@ -651,5 +651,5 @@
+ 
+ 	twi3_pins_sleep: twi3@1 {
+-		pins = "PE3", "PE4";
++		pins = "PH12", "PH13";
+ 		function = "gpio_in";
+ 	};
+@@ -897,5 +897,5 @@
+ 		pins = "PH0", "PH1", "PH2", "PH3",
+ 			"PH4", "PH5", "PH6", "PH7",
+-			"PH9", "PH10", "PH13", "PH14",
++			"PH9", "PH10", "PH14",
+ 			"PH15","PH16", "PH17", "PH18";
+ 		function = "gmac0";
+@@ -906,5 +906,5 @@
+ 		pins = "PH0", "PH1", "PH2", "PH3",
+ 			"PH4", "PH5", "PH6", "PH7",
+-			"PH9", "PH10", "PH13", "PH14",
++			"PH9", "PH10", "PH14",
+ 			"PH15","PH16", "PH17", "PH18";
+ 		function = "gpio_in";
+@@ -1206,5 +1206,5 @@
+ 		reg = <0x26>;
+ 		device_type = "gsensor";
+-		status = "okay";
++		status = "disabled";
+ 		gsensor_twi_id = <0x1>;
+ 		gsensor_twi_addr = <0x26>;
+@@ -1217,5 +1217,5 @@
+ 		compatible = "memsic,mmc5603x";
+ 		reg = <0x30>;
+-		status = "okay";
++		status = "disabled";
+ 		device_type = "magnetormetersensor";
+ 		mag_twi_id = <0x1>;
+@@ -1232,5 +1232,5 @@
+ 		gsensor_twi_id = <0x1>;
+ 		gsensor_twi_addr = <0x6b>;
+-		gsensor_int1 = <&pio PL 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
++		gsensor_int1 = <&r_pio PL 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+ 		gsensor-supply = <&reg_cldo3>;
+ 		gsensor_vcc_io_val = <3300>;
+@@ -2376,5 +2376,5 @@
+ 	vind_mipipin_vol = <3300000>;
+ 	dram_dfs_time = <150>;
+-	status = "okay";
++	status = "disabled";
+ 
+ 	csi3:csi@5823000 {

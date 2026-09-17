@@ -6,6 +6,7 @@ Before=graphical.target
 
 [Service]
 Type=simple
+Slice=graphical.slice
 ExecStart=/usr/local/libexec/trimui_inputd
 Restart=on-failure
 RestartSec=1

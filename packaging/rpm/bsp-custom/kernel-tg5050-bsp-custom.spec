@@ -1,6 +1,6 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        7.tina.tg5050%{?dist}
+Release:        8.tina.tg5050%{?dist}
 Summary:        custom vendor BSP kernel for TG5050
 License:        GPL-2.0-only
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
@@ -31,6 +31,23 @@ Patch12: 0015-de350-rcq-force-ahb-trigger.patch
 Patch13: 0016-de350-rcq-frequency-shadow.patch
 Patch14: 0017-de350-rcq-request-dispatch.patch
 Patch15: 0018-pmu-reset-powerkey-vendor-policy.patch
+Patch16: 0019-tg5050-vendor-pwm-fan-i2s0-ownership.patch
+Patch17: 0020-tg5050-vendor-power-usb-parity.patch
+Patch18: 0021-tg5050-vendor-backlight-contract.patch
+Patch19: 0022-tg5050-vendor-thermal-trips.patch
+Patch20: 0023-tg5050-vendor-battery-jeita-policy.patch
+Patch21: 0024-tg5050-vendor-usb-vbus-regulators.patch
+Patch22: 0025-tg5050-vendor-usb-wakeup-policy.patch
+Patch23: 0026-tg5050-vendor-usb-host-status.patch
+Patch24: 0027-tg5050-vendor-audio-eeprom-supply-policy.patch
+Patch25: 0028-tg5050-vendor-vind-tcon-status.patch
+Patch26: 0029-tg5050-vendor-sensor-gpio-status.patch
+Patch27: 0030-tg5050-vendor-sdmmc-delay-table.patch
+Patch28: 0031-tg5050-vendor-gpu-clock-opp-contract.patch
+Patch29: 0032-tg5050-vendor-usb-supply-phandles.patch
+Patch30: 0033-tg5050-vendor-husb311-typec-graph.patch
+Patch31: 0034-tg5050-vendor-drm-dp-status.patch
+Patch32: 0035-tg5050-vendor-husb311-vbus-supply.patch
 
 
 
@@ -86,8 +103,6 @@ mv a523-%{a523_commit} board
 mkdir -p arch/arm64/boot/dts/sunxi arch/arm64/configs
 cp board/configs/pro3_linux_aiot/linux-5.15/bsp_defconfig \
     arch/arm64/configs/pro3_defconfig
-cp bsp/configs/linux-5.15/sun55iw3p1.dtsi \
-    arch/arm64/boot/dts/sunxi/sun55iw3p1.dtsi
 cp -a bsp/include/dt-bindings/. include/dt-bindings/
 printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
     '#define AW_BSP_VERSION "aiot-linux-v1.5.0"' '#endif' > include/sunxi-autogen.h
@@ -106,6 +121,25 @@ printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
 %patch 13 -p1 -d bsp -F 0
 %patch 14 -p1 -d bsp -F 0
 %patch 15 -p1 -d board -F 0
+%patch 16 -p1 -d board -F 0
+%patch 17 -p1 -d board -F 0
+%patch 18 -p1 -d board -F 0
+%patch 19 -p1 -d bsp -F 0
+%patch 20 -p1 -d board -F 0
+%patch 21 -p1 -d board -F 0
+%patch 22 -p1 -d board -F 0
+%patch 23 -p1 -d board -F 0
+%patch 24 -p1 -d board -F 0
+%patch 25 -p1 -d board -F 0
+%patch 26 -p1 -d board -F 0
+%patch 27 -p1 -d bsp -F 0
+%patch 28 -p1 -d bsp -F 0
+%patch 29 -p1 -d board -F 0
+%patch 30 -p1 -d board -F 0
+%patch 31 -p1 -d bsp -F 0
+%patch 32 -p1 -d board -F 0
+cp bsp/configs/linux-5.15/sun55iw3p1.dtsi \
+    arch/arm64/boot/dts/sunxi/sun55iw3p1.dtsi
 cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
     arch/arm64/boot/dts/sunxi/board.dts
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += board.dtb' >> \

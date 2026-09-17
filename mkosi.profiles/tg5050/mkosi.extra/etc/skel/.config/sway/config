@@ -10,17 +10,18 @@ mouse_warping none
 
 # Sway has no bar or decorations in this appliance session. Do not declare a
 # bar at all: even `mode invisible` starts a swaybar process.
-output * bg #000000 solid_color
 
 # Consume the hardware volume rocker in the compositor. Without these
 # bindings KEY_VOLUMEUP/DOWN falls through to the focused game as keyboard
 # input instead of controlling the default PipeWire sink.
 bindsym --locked XF86AudioLowerVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-
 bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
+bindsym --locked XF86HomePage exec sh -c 'capacity=$(cat /sys/class/power_supply/axp2202-battery/capacity) && awob send --preempt --icon battery battery "$capacity" 100'
 
 # Native Wayland and Xwayland windows both become floating.
 for_window [app_id=".*"] floating enable
 for_window [class=".*"] floating enable
+for_window [app_id="org.ultramarinelinux.MarinaShell"] floating enable, resize set width 100 ppt height 100 ppt, move position 0 0
 for_window [app_id="foot"] fullscreen enable
 
 # Import Sway's dynamic environment before starting session-bound services.

@@ -1,0 +1,8 @@
+[Unit]
+Description=Graphical shell workload slice
+
+[Slice]
+# Keep the appliance shell responsive enough to function, while giving
+# foreground graphical applications more weight than the shell UI.
+CPUWeight=1
+IOWeight=1

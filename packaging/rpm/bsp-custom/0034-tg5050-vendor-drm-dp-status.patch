@@ -1,0 +1,16 @@
+--- a/configs/linux-5.15/sun55iw3p1.dtsi
++++ b/configs/linux-5.15/sun55iw3p1.dtsi
+@@ -1964,5 +1964,5 @@
+ 
+ 		drm_edp: drm_edp@5720000 {
+-			compatible = "allwinner,drm-edp";
++			compatible = "allwinner,drm-dp";
+ 			reg = <0x0 0x05720000 0x0 0x4000>;
+ 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+@@ -1977,5 +1977,5 @@
+ 			assigned-clocks = <&ccu CLK_EDP>;
+ 			assigned-clock-parents = <&ccu CLK_PLL_VIDEO1_4X>;
+-			status = "disabled";
++			status = "okay";
+ 			ports {
+ 				#address-cells = <1>;

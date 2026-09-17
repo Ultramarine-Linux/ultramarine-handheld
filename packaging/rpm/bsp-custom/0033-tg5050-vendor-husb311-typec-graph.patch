@@ -1,0 +1,52 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -2017,5 +2017,5 @@
+ 		usbc0_role_switch: endpoint@0 {
+ 			reg = <0>;
+-			remote-endpoint = <&usbc0_role_sw>;
++			remote-endpoint = <&husb311_role>;
+ 		};
+ 	};
+@@ -2866,2 +2866,42 @@
+ 	status = "disabled";
+ };
++
++
++&twi5 {
++	husb311: husb311@4e {
++		compatible = "hynetek,husb311";
++		reg = <0x4e>;
++		interrupt-parent = <&r_pio>;
++		husb311,intr_gpio = <&r_pio PL 13 GPIO_ACTIVE_LOW>;
++		vbus-supply = <&reg_drivevbus>;
++		det_usb_supply = <&usb_power_supply>;
++		aw,vbus-debounce-quirk;
++		aw,vbus-tryon-debounce = <1200>;
++		aw,vbus-check-debounce = <600>;
++		status = "okay";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			port@0 {
++				reg = <0>;
++				husb311_role: endpoint@0 {
++					remote-endpoint = <&usbc0_role_switch>;
++				};
++			};
++		};
++
++		connector {
++			compatible = "usb-c-connector";
++			label = "USB-C";
++			data-role = "dual";
++			power-role = "dual";
++			try-power-role = "source";
++			op-sink-microwatt = <1000000>;
++			sink-pdos = <0x220190c8 0x864190c8>;
++			source-pdos = <0x22019032 0x86419078>;
++			sink-vdos = <0xd1002e99 0x00000000 0x03110000>;
++			sink-vdos-v1 = <0xd1002e99 0x00000000 0x03110000>;
++		};
++	};
++};

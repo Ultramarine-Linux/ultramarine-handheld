@@ -1,0 +1,70 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -1508,11 +1508,11 @@
+ 			pmu_chg_ic_temp = <0>;
+ 
+-			pmu_battery_rdc= <170>;
++			pmu_battery_rdc= <147>;
+ 			pmu_battery_cap = <5000>;
+ 			pmu_runtime_chgcur = <1000>;
+-			pmu_suspend_chgcur = <1500>;
+-			pmu_shutdown_chgcur = <1500>;
+-			pmu_init_chgvol = <4350>;
+-			pmu_battery_warning_level1 = <15>;
++			pmu_suspend_chgcur = <1950>;
++			pmu_shutdown_chgcur = <1950>;
++			pmu_init_chgvol = <4200>;
++			pmu_battery_warning_level1 = <5>;
+ 			pmu_battery_warning_level2 = <0>;
+ 			pmu_chgled_func = <0>;
+@@ -1553,27 +1553,27 @@
+ 			pmu_bat_temp_enable = <1>;
+ 			pmu_jetia_en        = <1>;
+-			pmu_bat_charge_ltf = <1695>; //-5
+-			pmu_bat_charge_htf = <151>; //60
+-			pmu_bat_shutdown_ltf = <2125>; //-10
+-			pmu_bat_shutdown_htf = <131>; //65
+-			pmu_jetia_cool = <1361>; //0
+-			pmu_jetia_warm = <208>; //50
+-			pmu_jcool_ifall = <0>;//100%
+-			pmu_jwarm_ifall = <0>;//100%
+-			pmu_bat_temp_para1 = <4378>; //Murata -25
+-			pmu_bat_temp_para2 = <2682>; //-15
+-			pmu_bat_temp_para3 = <2125>; //-10
+-			pmu_bat_temp_para4 = <1695>; //-5
+-			pmu_bat_temp_para5 = <1361>;//0
+-			pmu_bat_temp_para6 = <1101>; //5
+-			pmu_bat_temp_para7 = <896>; //10
+-			pmu_bat_temp_para8 = <604>; //20
+-			pmu_bat_temp_para9 = <416>; //30
+-			pmu_bat_temp_para10 = <292>; //40
+-			pmu_bat_temp_para11 = <246>; //45
+-			pmu_bat_temp_para12 = <208>; //50
+-			pmu_bat_temp_para13 = <177>; //55
+-			pmu_bat_temp_para14 = <151>; //60
+-			pmu_bat_temp_para15 = <111>; //70
++			pmu_bat_charge_ltf = <1390>; //-5
++			pmu_bat_charge_htf = <206>; //60
++			pmu_bat_shutdown_ltf = <2190>; //-10
++			pmu_bat_shutdown_htf = <150>; //65
++			pmu_jetia_cool = <722>; //0
++			pmu_jetia_warm = <196>; //50
++			pmu_jcool_ifall = <1>;//100%
++			pmu_jwarm_ifall = <1>;//100%
++			pmu_bat_temp_para1 = <4591>; //Murata -25
++			pmu_bat_temp_para2 = <2781>; //-15
++			pmu_bat_temp_para3 = <2190>; //-10
++			pmu_bat_temp_para4 = <1738>; //-5
++			pmu_bat_temp_para5 = <1390>;//0
++			pmu_bat_temp_para6 = <1118>; //5
++			pmu_bat_temp_para7 = <906>; //10
++			pmu_bat_temp_para8 = <606>; //20
++			pmu_bat_temp_para9 = <415>; //30
++			pmu_bat_temp_para10 = <290>; //40
++			pmu_bat_temp_para11 = <244>; //45
++			pmu_bat_temp_para12 = <206>; //50
++			pmu_bat_temp_para13 = <175>; //55
++			pmu_bat_temp_para14 = <150>; //60
++			pmu_bat_temp_para15 = <110>; //70
+ 			pmu_bat_temp_para16 = <83>; //80
+ 

@@ -1,0 +1,28 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -27,9 +27,9 @@
+ 	status = "okay";
+ 	usb-role-switch;
+-	det_vbus_supply = <&sunxi_usb_power_supply>;
++	det_vbus_supply = <&usb_power_supply>;
+ };
+ 
+ &udc {
+-	det_vbus_supply = <&sunxi_usb_power_supply>;
++	det_vbus_supply = <&usb_power_supply>;
+ 	status = "okay";
+ };
+@@ -2037,5 +2037,5 @@
+ 	usb_id_gpio;
+ 	usb_det_vbus_gpio = "axp_ctrl";
+-	det_vbus_supply = <&sunxi_usb_power_supply>;
++	det_vbus_supply = <&usb_power_supply>;
+ 	usb_regulator_io = "nocare";
+ 	usb_wakeup_suspend = <0>;
+@@ -2048,5 +2048,5 @@
+ 
+ &udc {
+-	det_vbus_supply = <&sunxi_usb_power_supply>;
++	det_vbus_supply = <&usb_power_supply>;
+ 	status = "okay";
+ };

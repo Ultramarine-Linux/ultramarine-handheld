@@ -1,0 +1,37 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -1100,5 +1100,5 @@
+ 	/* For stability and backwards compatibility, we recommend setting ‘twi_drv_used’ to 1 */
+ 	twi_drv_used = <1>;
+-	twi-supply = <&reg_cldo3>;
++	twi-supply = <&reg_cldo2>;
+ 	status = "okay";
+ 
+@@ -1106,5 +1106,5 @@
+ 		compatible = "atmel,24c16";
+ 		reg = <0x50>;
+-		status = "okay";
++		status = "disabled";
+ 	};
+ 	pcie_usb_phy@74 {
+@@ -1256,5 +1256,5 @@
+ 	/* For stability and backwards compatibility, we recommend setting ‘twi_drv_used’ to 1 */
+ 	twi_drv_used = <1>;
+-	twi-supply = <&reg_aldo2>;
++	twi-supply = <&reg_cldo3>;
+ 	status = "disabled";
+ };
+@@ -1295,5 +1295,5 @@
+ 		ch1-pga-gain            = <26>;
+ 		ch2-pga-gain            = <26>;
+-		status                  = "okay";
++		status                  = "disabled";
+ 	};
+ };
+@@ -2141,5 +2141,5 @@
+ 	adc2-vol	= <160>;	/* default value:160 range:0->255 */
+ 	adc3-vol	= <160>;	/* default value:160 range:0->255 */
+-	lineout-gain	= <31>;		/* default value:31 range:0->31 */
++	lineout-gain	= <19>;		/* default value:31 range:0->31 */
+ 	hpout-gain	= <7>;		/* default value:7 range:0->7 */
+ 	adc1-gain	= <31>;		/* default value:31 range:0->31 */

@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 import struct
+import subprocess
 import time
 
 EV_KEY = 0x01
@@ -49,11 +50,41 @@ def write_value(path: Path, value: int) -> None:
     path.write_text(f"{value}\n", encoding="ascii")
 
 
-def toggle_backlight() -> None:
+ACTIVE_TARGET = "marina-active.target"
+IDLE_TARGET = "marina-idle.target"
+
+
+def set_session_state(idle: bool) -> None:
+    target = IDLE_TARGET if idle else ACTIVE_TARGET
+    command = [
+        "/usr/bin/systemctl",
+        "start",
+        target,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as error:
+        LOG.error("cannot start %s: %s", target, error)
+        return
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        LOG.error("cannot start %s: %s", target, detail)
+        return
+    LOG.info("Marina session state: %s", "idle" if idle else "active")
+
+
+def toggle_backlight() -> bool | None:
     backlight = find_backlight()
     if backlight is None:
         LOG.warning("no backlight device found")
-        return
+        return None
 
     power = backlight / "bl_power"
     try:
@@ -62,10 +93,11 @@ def toggle_backlight() -> None:
         write_value(power, target)
     except (OSError, ValueError) as error:
         LOG.error("cannot toggle %s: %s", power, error)
-        return
+        return None
 
     state = "off" if target == 4 else "on"
     LOG.info("panel %s via %s", state, power)
+    return target == 4
 
 
 def monitor(event_device: Path) -> None:
@@ -76,8 +108,12 @@ def monitor(event_device: Path) -> None:
             if len(event) != INPUT_EVENT.size:
                 raise OSError("short read from input event device")
             _, _, event_type, code, value = INPUT_EVENT.unpack(event)
-            if event_type == EV_KEY and code == KEY_POWER and value == 1:
-                toggle_backlight()
+            # Apply the panel/state transition on key release. Ignore the
+            # press and autorepeat events so one hold produces one toggle.
+            if event_type == EV_KEY and code == KEY_POWER and value == 0:
+                screen_off = toggle_backlight()
+                if screen_off is not None:
+                    set_session_state(screen_off)
 
 
 def main() -> None:

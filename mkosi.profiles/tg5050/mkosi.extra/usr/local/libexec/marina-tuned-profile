@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+request=/run/marina-tuned-request
+
+if [[ ${1:-} != --worker ]]; then
+    echo 'usage: marina-tuned-profile --worker' >&2
+    exit 2
+fi
+
+while test -s "$request"; do
+    profile=$(head -n 1 "$request")
+    rm -f "$request"
+    if ! /usr/bin/tuned-adm profile "$profile"; then
+        /usr/bin/logger -t marina-tuned-profile "unable to set tuned profile: $profile"
+    fi
+done

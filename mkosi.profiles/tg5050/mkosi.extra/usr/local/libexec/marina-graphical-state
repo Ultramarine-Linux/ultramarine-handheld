@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state=${1:?usage: marina-graphical-state active|idle}
+profile_state=/var/lib/marina/last-power-profile
+
+mkdir -p "${profile_state%/*}"
+
+# Idle and active targets can be started back-to-back. Keep profile capture,
+# restore, and request publication atomic across those two oneshot services.
+exec 9>/run/marina-graphical-state.lock
+/usr/bin/flock -x 9
+
+current_tuned_profile() {
+    /usr/bin/cat /etc/tuned/active_profile
+}
+
+queue_tuned_profile() {
+    local profile=$1
+    local temporary=/run/marina-tuned-request.tmp
+    printf '%s\n' "$profile" > "$temporary"
+    mv -f "$temporary" /run/marina-tuned-request
+    /usr/bin/systemctl start --no-block marina-tuned-profile.service
+}
+
+set_idle_tuning() {
+    local profile
+    profile=$(current_tuned_profile)
+    # Never replace the last usable wake profile with the sleep-only profile.
+    if test -n "$profile" && [[ $profile != marina-minimal ]]; then
+        printf '%s\n' "$profile" > "$profile_state.tmp"
+        mv -f "$profile_state.tmp" "$profile_state"
+    elif ! test -s "$profile_state"; then
+        printf 'balanced\n' > "$profile_state"
+    fi
+}
+
+restore_active_tuning() {
+    local profile=balanced
+    if test -s "$profile_state"; then
+        profile=$(head -n 1 "$profile_state")
+    fi
+    if [[ -z $profile || $profile == marina-minimal ]]; then
+        profile=balanced
+        printf '%s\n' "$profile" > "$profile_state.tmp"
+        mv -f "$profile_state.tmp" "$profile_state"
+    fi
+    restore_profile=$profile
+}
+
+fan_pwm_path() {
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        test -r "$hwmon/name" || continue
+        if [[ $(<"$hwmon/name") == pwmfan && -w "$hwmon/pwm1" ]]; then
+            printf '%s/pwm1\n' "$hwmon"
+            return
+        fi
+    done
+}
+
+stop_idle_fan() {
+    # The current vendor-equivalent policy is stock fancontrol.  Do not leave
+    # it running while forcing the idle value, or it will immediately rewrite
+    # the PWM from its temperature loop.
+    /usr/bin/systemctl stop fancontrol.service || true
+    local pwm
+    pwm=$(fan_pwm_path || true)
+    if test -n "$pwm"; then
+        # The fan controller treats raw PWM 0 as full drive.  Raw PWM 1..100
+        # is the observed fan-off range; use its lowest safe value.  Do not
+        # infer this from the DT polarity alone.
+        printf '1\n' > "$pwm"
+    else
+        /usr/bin/logger -t marina-graphical-state 'pwmfan not found while entering idle'
+    fi
+}
+
+start_active_fan() {
+    /usr/bin/systemctl start fancontrol.service || \
+        /usr/bin/logger -t marina-graphical-state 'unable to start fancontrol'
+}
+
+user_graphical_state() {
+    # Calling systemctl --machine=... --user starts a stdio bridge and can
+    # create a transient PAM/Wayland session during the freeze transition.
+    # Use the already-running user manager directly instead; the user manager
+    # is lingered so its bus remains available without a login session.
+    /usr/bin/runuser -u ultramarine -- env \
+        XDG_RUNTIME_DIR=/run/user/1000 \
+        DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        /usr/bin/systemctl --user "$1" graphical.slice
+}
+
+case "$state" in
+    idle)
+        set_idle_tuning
+        operation=freeze
+        ;;
+    active)
+        restore_active_tuning
+        start_active_fan
+        operation=thaw
+        ;;
+    *) echo "unknown graphical state: $state" >&2; exit 2 ;;
+esac
+
+# The system compositor and user-session graphical workloads have separate
+# systemd managers. Freeze the user workload first: freezing the system slice
+# first can stall the user manager's own freeze transaction until timeout.
+user_graphical_state "$operation"
+/usr/bin/systemctl "$operation" graphical.slice
+
+if [[ $state == idle ]]; then
+    stop_idle_fan
+    queue_tuned_profile marina-minimal
+else
+    queue_tuned_profile "${restore_profile:-balanced}"
+fi

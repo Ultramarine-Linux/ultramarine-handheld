@@ -1,0 +1,35 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -2836,2 +2836,32 @@
+ 	};
+ };
++
++/* Match vendor DT: unused video-input blocks are disabled, while TCON3
++ * remains enabled in the vendor peripheral contract. */
++&tv1 {
++	status = "okay";
++};
++
++&actuator0 {
++	status = "disabled";
++};
++
++&sensor0 {
++	status = "disabled";
++};
++
++&sensor1 {
++	status = "disabled";
++};
++
++&vinc00 {
++	status = "disabled";
++};
++
++&vinc10 {
++	status = "disabled";
++};
++
++&vinc20 {
++	status = "disabled";
++};

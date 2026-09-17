@@ -1,8 +1,8 @@
 [Unit]
-Description=Graphical application workload slice
+Description=Freezer-capable graphical application workload slice
 
 [Slice]
-# Give interactive graphical applications more scheduler and I/O weight than
-# ordinary sibling user slices while keeping the user manager as the parent.
+# Foreground apps get priority over the shell UI, while remaining a nested
+# slice that systemd can freeze and thaw as a group.
 CPUWeight=200
 IOWeight=200

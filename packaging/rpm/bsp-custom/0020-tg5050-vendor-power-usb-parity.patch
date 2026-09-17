@@ -1,0 +1,41 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -5,6 +5,38 @@
+ /dts-v1/;
+ 
+ #include "sun55iw3p1.dtsi"
++
++&pck {
++	power-controller {
++		pd1_vi@A523_PCK_VI {
++			ppu-always-on;
++		};
++		pd1_vo0@A523_PCK_VO0 {
++			ppu-always-on;
++		};
++		pd1_vo1@A523_PCK_VO1 {
++			ppu-always-on;
++		};
++	};
++};
++
++&usbc0 {
++	usb_detect_type = <2>;
++	usb_detect_mode = <2>;
++	usb_det_vbus_gpio = "axp_ctrl";
++	status = "okay";
++	usb-role-switch;
++	det_vbus_supply = <&sunxi_usb_power_supply>;
++};
++
++&udc {
++	det_vbus_supply = <&sunxi_usb_power_supply>;
++	status = "okay";
++};
++
++&usbc1 {
++	status = "okay";
++};
+ 
+ /{
+ 	board = "A523", "A523-PRO2-AXP717C";

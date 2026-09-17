@@ -16,8 +16,13 @@ ln -sfn /usr/lib/systemd/system/systemd-repart.service \
     /etc/systemd/system/sysinit.target.wants/systemd-repart.service
 systemctl enable trimui-inputd.service
 systemctl enable trimui-power-toggle.service
-systemctl enable fancontrol.service
 systemctl enable trimui-audio-mixer.service
+# Keep the user manager and D-Bus available while the graphical workloads are
+# frozen; this avoids creating a transient login session during wake/freeze.
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/ultramarine
+mkdir -p /var/lib/marina
+printf 'balanced\n' > /var/lib/marina/last-power-profile
 # Enable the Wayland OSD for the fixed ultramarine user session.
 systemctl --global enable awob.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer

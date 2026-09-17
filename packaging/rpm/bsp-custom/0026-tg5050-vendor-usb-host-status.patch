@@ -1,0 +1,17 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -2070,12 +2070,12 @@
+ 
+ &ehci1 {
+ 	drvvbus-supply = <&reg_usb1_vbus>;
+-	status = "disabled";
++	status = "okay";
+ };
+ 
+ &ohci1 {
+ 	drvvbus-supply = <&reg_usb1_vbus>;
+-	status = "disabled";
++	status = "okay";
+ };
+ 
+ &usbc2 {

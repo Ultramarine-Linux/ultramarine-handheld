@@ -1,0 +1,27 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -57,13 +57,23 @@
+ 		pwm0 = &pwm0;
+ 	};
+ 
++	reg_usb0_vbus: usb0-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb0-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-enable-ramp-delay = <1000>;
++		gpio = <&pio PD 8 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++
+ 	reg_usb1_vbus: usb1-vbus {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "usb1-vbus";
+ 		regulator-min-microvolt = <5000000>;
+ 		regulator-max-microvolt = <5000000>;
+ 		regulator-enable-ramp-delay = <1000>;
+-		gpio = <&r_pio PL 8 GPIO_ACTIVE_HIGH>;
++		gpio = <&pio PE 6 GPIO_ACTIVE_HIGH>;
+ 		enable-active-high;
+ 	};
+ 

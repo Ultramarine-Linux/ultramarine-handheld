@@ -1,0 +1,46 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -1456,7 +1456,7 @@
+ 			status = "okay";
+ 
+ 			pmu_usbpc_vol = <4600>;
+-			pmu_usbpc_cur = <500>;
++			pmu_usbpc_cur = <2500>;
+ 			pmu_usbad_vol = <4000>;
+ 			pmu_usbad_cur = <2500>;
+ 			pmu_usb_typec_used = <1>;
+@@ -2022,19 +2022,17 @@
+ &usbc0 {
+ 	device_type = "usbc0";
+ 	usb_port_type = <0x2>;
+-	usb_detect_type = <0x3>;
+-	usb_detect_mode = <0x0>;
++	usb_detect_type = <0x2>;
++	usb_detect_mode = <0x2>;
+ 	usb_id_gpio;
+ 	usb_det_vbus_gpio = "axp_ctrl";
+ 	det_vbus_supply = <&sunxi_usb_power_supply>;
+-	enable-active-high;
+ 	usb_regulator_io = "nocare";
+-	usb_wakeup_suspend = <1>;
++	usb_wakeup_suspend = <0>;
+ 	usb_luns = <3>;
+ 	usb_serial_unique = <0>;
+ 	usb_serial_number = "20080411";
+ 	rndis_wceis = <1>;
+-	wakeup-source;
+ 	status = "okay";
+ };
+ 
+@@ -2056,9 +2054,8 @@
+ &usbc1 {
+ 	device_type = "usbc1";
+ 	usb_regulator_io = "nocare";
+-	usb_wakeup_suspend = <1>;
+-	wakeup-source;
+-	status = "disabled";
++	usb_wakeup_suspend = <0>;
++	status = "okay";
+ };
+ 
+ &ehci1 {

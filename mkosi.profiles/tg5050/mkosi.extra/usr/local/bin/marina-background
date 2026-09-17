@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/sway/background"
+
+run_background() {
+    test -r "$config" || {
+        echo "background config not found: $config" >&2
+        exit 1
+    }
+    image=$(sed -n '1p' "$config")
+    test -n "$image" || { echo "background config is empty: $config" >&2; exit 1; }
+    test -f "$image" -a -r "$image" || {
+        echo "background image is not readable: $image" >&2
+        exit 1
+    }
+    exec /usr/bin/swaybg -i "$image" -m fill
+}
+
+set_background() {
+    image=${1:?usage: marina-background IMAGE}
+    image=$(realpath -e -- "$image")
+    test -f "$image" -a -r "$image" || {
+        echo "background image is not a readable regular file: $image" >&2
+        exit 1
+    }
+
+    mkdir -p "$(dirname "$config")"
+    temporary=$(mktemp "${config}.tmp.XXXXXX")
+    trap 'rm -f "$temporary"' EXIT
+    printf '%s\n' "$image" > "$temporary"
+    chmod 0644 "$temporary"
+    mv -f -- "$temporary" "$config"
+    trap - EXIT
+
+    # A remote shell can persist the choice even when no graphical bus exists.
+    if systemctl --user is-active --quiet sway-session.target 2>/dev/null; then
+        systemctl --user restart swaybg.service
+    fi
+    printf 'background=%s\n' "$image"
+}
+
+if [[ ${1:-} == --run ]]; then
+    (($# == 1)) || { echo 'usage: marina-background --run' >&2; exit 2; }
+    run_background
+fi
+
+(($# == 1)) || { echo 'usage: marina-background IMAGE' >&2; exit 2; }
+set_background "$1"

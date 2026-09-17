@@ -4,6 +4,7 @@ Documentation=man:sway(1)
 After=systemd-user-sessions.service user@1000.service getty@tty1.service
 Conflicts=getty@tty1.service
 Wants=user@1000.service
+Wants=marina-active.target
 
 [Service]
 Type=simple
@@ -38,6 +39,7 @@ MemoryMax=384M
 CPUWeight=50
 IOWeight=50
 OOMScoreAdjust=300
+Slice=graphical.slice
 
 [Install]
 WantedBy=graphical.target

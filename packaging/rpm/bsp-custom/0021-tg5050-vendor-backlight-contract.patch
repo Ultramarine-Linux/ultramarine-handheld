@@ -1,0 +1,12 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -176,8 +176,7 @@
+ 			232 233 234 235 236 237 238 239
+ 			240 241 242 243 244 245 246 247
+ 			248 249 250 251 252 253 254 255>;
+-		default-brightness-level = <200>;
+-		enable-gpios = <&pio PH 18 GPIO_ACTIVE_HIGH>;
++		default-brightness-level = <50>;
+ 		pwms = <&pwm0 0 50000 0>;
+ 	};
+ 

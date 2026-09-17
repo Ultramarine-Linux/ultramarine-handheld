@@ -1,0 +1,9 @@
+[Unit]
+Description=Freeze Marina graphical workloads
+PartOf=marina-idle.target
+Before=marina-idle.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/marina-graphical-state idle
+RemainAfterExit=yes

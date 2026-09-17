@@ -1,0 +1,61 @@
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -2185,53 +2185,55 @@
+ &dmic_mach {
+ 	status		= "disabled";
+ 	soundcard-mach,cpu {
+ 		sound-dai = <&dmic_plat>;
+ 	};
+ 	soundcard-mach,codec {
+ 	};
+ };
+ 
+ /* audio dirver module -> I2S/PCM */
+ &i2s0_plat {
+ 	tdm-num		= <0>;
+ 	tx-pin		= <0>;
+ 	rx-pin		= <0>;
+ 	pinctrl-used;
+ 	pinctrl-names	= "default","sleep";
+ 	pinctrl-0	= <&i2s0_pins_a &i2s0_pins_c &i2s0_pins_d>;
+ 	pinctrl-1	= <&i2s0_pins_b>;
+ 	tx-hub-en;
+ 	rx-sync-en;
+-	status		= "okay";
++	/* Vendor DTB leaves I2S0 disabled so PB6 can drive PWM0 channel 10. */
++	status		= "disabled";
+ };
+ 
+ &i2s0_mach {
+ 	soundcard-mach,format		= "i2s";
+ 	soundcard-mach,frame-master	= <&i2s0_cpu>;
+ 	soundcard-mach,bitclock-master	= <&i2s0_cpu>;
+ 	/* soundcard-mach,frame-inversion; */
+ 	/* soundcard-mach,bitclock-inversion; */
+ 	soundcard-mach,slot-num		= <2>;
+ 	soundcard-mach,slot-width	= <32>;
+ 	soundcard-mach,capture-only;
+-	status		= "okay";
++	/* Vendor DTB uses the internal audiocodec instead of I2S0. */
++	status		= "disabled";
+ 	i2s0_cpu: soundcard-mach,cpu {
+ 		sound-dai = <&i2s0_plat>;
+ 		/* note: pll freq = 24.576M or 22.5792M * pll-fs */
+ 		soundcard-mach,pll-fs	= <1>;
+ 		/* note:
+ 		 * mclk freq = mclk-fs * 12.288M or 11.2896M	(when mclk-fp ture)
+ 		 * mclk freq = mclk-fs * pcm rate		(when mclk-fp false)
+ 		 */
+ 		soundcard-mach,mclk-fp;
+ 		soundcard-mach,mclk-fs	= <1>;
+ 	};
+ 	i2s0_codec: soundcard-mach,codec {
+ 		sound-dai               = <&ac107>;
+ 		soundcard-mach,pll-fs   = <1>;
+ 	};
+ };
+ 
+ &i2s1_plat {
+ 	tdm-num		= <1>;
+ 	tx-pin		= <0>;
+ 	rx-pin		= <0>;
