@@ -1,0 +1,31 @@
+From: TG5050 downstream reconstruction
+Subject: [PATCH] arm64: dts: tg5050: restore vendor PMU reset and power-key policy
+
+The shipping TG5050 DTB uses the vendor PMU reset policy and power-key
+off behavior. Keep these controls separate from the safety-sensitive
+battery charger and JEITA values.
+
+Evidence: stock vendor-kernel.dtb and build/vendor-full-reconstruction/dt/classification.json.
+
+--- a/configs/pro3_linux_aiot/linux-5.15/board.dts
++++ b/configs/pro3_linux_aiot/linux-5.15/board.dts
+@@ -1414,7 +1414,7 @@
+ 		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+ 		interrupt-parent = <&nmi_intc>;
+ 		x-powers,drive-vbus-en;
+-		pmu_reset = <0>;
++		pmu_reset = <1>;
+ 		pmu_irq_wakeup = <1>;
+ 		pmu_hot_shutdown = <1>;
+ 
+@@ -1562,8 +1562,8 @@
+ 		powerkey0: powerkey@0 {
+ 			status = "okay";
+ 			compatible = "x-powers,axp2101-pek";
+-			pmu_powkey_off_time = <6000>;
+-			pmu_powkey_off_func = <1>;
++			pmu_powkey_off_time = <10000>;
++			pmu_powkey_off_func = <0>;
+ 			pmu_powkey_off_en = <1>;
+ 			pmu_powkey_long_time = <1500>;
+ 			pmu_powkey_on_time = <512>;

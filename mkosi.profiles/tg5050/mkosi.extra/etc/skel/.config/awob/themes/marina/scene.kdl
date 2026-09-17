@@ -1,0 +1,30 @@
+// Marina OSD theme.
+// Numeric events use the wide bar layout. Sends with --style binary use
+// the compact square layout and omit the bar entirely.
+
+import "../_palettes/marina.kdl"
+
+surface {
+    width 360
+    height 96
+    anchor "bottom"
+    offset 0 -48
+    fade-in  "120ms"
+    show     "1200ms"
+    fade-out "160ms"
+    transition "220ms"
+}
+
+scene {
+    // Numeric card; collapsed for binary events.
+    rect z=0 x=0 y=16 width="{$style == \"binary\" ? 0 : 360}" height="{$style == \"binary\" ? 0 : 64}" radius=14 fill="$bg"
+    image z=1 src="{$icon ?? icon($event)}" x=14 y=37 width="{$style == \"binary\" ? 0 : 22}" height="{$style == \"binary\" ? 0 : 22}"
+    text z=1 value="{$style == \"binary\" ? \"\" : truncate($app ?? label($event), 24)}" x=46 y=30 font="Inter 14 500" colour="$fg"
+    text z=1 anchor="top-right" value="{$style == \"binary\" ? \"\" : int($progress * 100)}{$style == \"binary\" ? \"\" : \"%\"}" x=14 y=30 font="Inter 14 500" colour="$fg"
+    rect z=1 x=46 y=58 width="{$style == \"binary\" ? 0 : 300}" height=8 radius=999 fill="$track"
+    bar z=2 x=46 y=58 width="{$style == \"binary\" ? 0 : 300}" height=8 radius=999 fill="$accent" min=0 max="$max" value="$value" from="{$lastValue ?? $value}"
+
+    // Binary card; collapsed for numeric events.
+    rect z=3 x=132 y=0 width="{$style == \"binary\" ? 96 : 0}" height="{$style == \"binary\" ? 96 : 0}" radius=18 fill="$bg"
+    image z=4 src="{$icon ?? icon($event)}" x=156 y=24 width="{$style == \"binary\" ? 48 : 0}" height="{$style == \"binary\" ? 48 : 0}" colour="$accent"
+}

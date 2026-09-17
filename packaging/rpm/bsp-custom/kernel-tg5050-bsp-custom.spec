@@ -1,6 +1,6 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        6.tina.tg5050%{?dist}
+Release:        7.tina.tg5050%{?dist}
 Summary:        custom vendor BSP kernel for TG5050
 License:        GPL-2.0-only
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
@@ -30,6 +30,7 @@ Patch11: 0014-tg5050-vendor-de-channel-mode.patch
 Patch12: 0015-de350-rcq-force-ahb-trigger.patch
 Patch13: 0016-de350-rcq-frequency-shadow.patch
 Patch14: 0017-de350-rcq-request-dispatch.patch
+Patch15: 0018-pmu-reset-powerkey-vendor-policy.patch
 
 
 
@@ -38,12 +39,20 @@ BuildRequires: bison
 BuildRequires: flex
 BuildRequires: gcc-aarch64-linux-gnu
 BuildRequires: openssl-devel
+BuildRequires: openssl-devel-engine
 BuildRequires: perl
 BuildRequires: python3
 BuildRequires: dtc
 
 %global krel 5.15.147
 %global debug_package %{nil}
+# Optional host-tool flags for immutable build hosts. Normal builds get these
+# from BuildRequires: openssl-devel-engine and leave the macro empty.
+%global kernel_hostcflags %{nil}
+%global kernel_hostldflags %{nil}
+%global kernel_pkgconfigpath %{nil}
+%global kernel_cryptocflags %{nil}
+%global kernel_cryptolibs %{nil}
 
 %description
 Boot-tested custom Allwinner A523 vendor-BSP kernel for the TrimUI Smart Pro S.
@@ -96,6 +105,7 @@ printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
 %patch 12 -p1 -d bsp -F 0
 %patch 13 -p1 -d bsp -F 0
 %patch 14 -p1 -d bsp -F 0
+%patch 15 -p1 -d board -F 0
 cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
     arch/arm64/boot/dts/sunxi/board.dts
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += board.dtb' >> \
@@ -113,6 +123,10 @@ export KBUILD_BUILD_VERSION=1
 export KBUILD_BUILD_USER=builder
 export KBUILD_BUILD_HOST=buildhost
 export KBUILD_BUILD_TIMESTAMP="$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%a %b %e %T %Y')"
+export HOSTCFLAGS="%{kernel_hostcflags}"
+export HOSTLDFLAGS="%{kernel_hostldflags}"
+export PKG_CONFIG_PATH="%{kernel_pkgconfigpath}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+%if ! 0%{?kernel_skip_build}
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" pro3_defconfig
 scripts/config --file out/.config \
@@ -133,7 +147,9 @@ make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION= \
+    CRYPTO_CFLAGS="%{kernel_cryptocflags}" CRYPTO_LIBS="%{kernel_cryptolibs}" \
     -j%{?_smp_build_ncpus}%{!?_smp_build_ncpus:1} Image modules dtbs
+%endif
 
 %install
 rm -rf %{buildroot}

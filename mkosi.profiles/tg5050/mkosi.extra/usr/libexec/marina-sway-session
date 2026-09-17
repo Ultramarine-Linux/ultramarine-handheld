@@ -1,0 +1,40 @@
+#!/bin/sh
+# Bridge the running Sway process environment into systemd and D-Bus.
+# Sway executes this after its Wayland socket and IPC socket exist.
+set -eu
+
+SESSION_TARGET=sway-session.target
+SHUTDOWN_TARGET=sway-session-shutdown.target
+VARS="DESKTOP_SESSION XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE DISPLAY SWAYSOCK WAYLAND_DISPLAY XCURSOR_THEME XCURSOR_SIZE"
+
+export XDG_CURRENT_DESKTOP=sway
+export XDG_SESSION_TYPE=wayland
+
+# The system marina service owns the one compositor session on this appliance.
+# A failed previous start can leave the target active without a compositor;
+# clear that stale target before importing the new socket environment.
+if systemctl --user -q is-active "$SESSION_TARGET" 2>/dev/null; then
+    systemctl --user start --job-mode=replace-irreversibly "$SHUTDOWN_TARGET" || \
+        systemctl --user stop "$SESSION_TARGET" || true
+fi
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    # dbus-update-activation-environment also updates systemd's activation env.
+    dbus-update-activation-environment --systemd $VARS || true
+fi
+systemctl --user reset-failed || true
+systemctl --user import-environment $VARS || true
+systemctl --user start "$SESSION_TARGET"
+
+cleanup() {
+    systemctl --user start --job-mode=replace-irreversibly "$SHUTDOWN_TARGET" || \
+        systemctl --user stop "$SESSION_TARGET" || true
+    systemctl --user unset-environment $VARS || true
+}
+trap cleanup INT TERM EXIT
+
+# Keep this bridge alive for the lifetime of the compositor. This gives the
+# target a deterministic shutdown edge instead of relying on ExecStartPost.
+swaymsg -t subscribe '["shutdown"]' >/dev/null
+trap - EXIT
+cleanup

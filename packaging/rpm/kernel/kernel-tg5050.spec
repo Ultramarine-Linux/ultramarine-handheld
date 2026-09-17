@@ -5,7 +5,7 @@ Summary:        Fedora-style alternate mainline kernel for TrimUI Smart Pro S
 License:        GPL-2.0-only
 URL:            https://github.com/torvalds/linux
 Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.tar.xz
-Source2:        https://github.com/MidG971/trimui_mainline_dts/archive/634e03ab964fbeab5395248038c518d8e27688b7.tar.gz
+Source2:        https://github.com/MidG971/trimui_mainline_dts/archive/50ff20b529773e6237fab2f5f48ac2981fffce5a.tar.gz
 Source3:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2.patch
 Source4:        https://raw.githubusercontent.com/warpme/minimyth2/97b9429b90db1fca1fe3b93a112fb739b0c5452d/script/kernel/linux-7.1/files/3401-net-wireless-backport-aic8800-sdio-v2025_0926_91c9dae5-mm2-fix-kernel7.1.patch
 Source1000:      trimui.config
@@ -14,7 +14,6 @@ Source1002:      aic8800-warpme-v7.2.patch
 # Production USB gadget console fragment used by the TG5050 recovery path.
 Source1003:      usb-gadget-console.config
 Source1004:      display-built-in.config
-Source1005:      https://github.com/radxa/allwinner-bsp/archive/87387566b989bef746d55117880259498ba496db.tar.gz
 
 Patch1001: 0001-drm-sun4i-dsi-add-sun55i-a523-MIPI-DSI-host-variant.patch
 Patch1002: 0002-phy-allwinner-add-sun55i-DSI-combo-D-PHY.patch
@@ -27,17 +26,18 @@ Patch1008: 0008-drm-sun4i-sun8i-mixer-add-sun55i-a523-DE3.5-DE33-mix.patch
 Patch1009: 0010-arm64-dts-allwinner-sun55i-a523-add-audio-codec.patch
 Patch1010: 0011-arm64-dts-allwinner-sun55i-a523-add-LRADC.patch
 Patch1011: 0013-usb-musb-sunxi-add-optional-USB-role-switch-support.patch
-Patch1012: 0015-clk-sunxi-ng-add-sun55i-a523-cpu-ccu.patch
-Patch1013: 0016-arm64-dts-sun55i-a523-add-cpu-clock-controller.patch
-Patch1014: 0017-clk-sunxi-ng-a523-cpu-reparent-clusters.patch
-Patch1015: 0018-clk-sunxi-ng-a523-cpu-skip-unused-pll-cpu0.patch
-Patch1016: 0019-clk-sunxi-ng-ccu-factor-update-handshake.patch
-Patch1017: 0020-clk-sunxi-ng-a523-cpu-commit-bit26-pll-init.patch
-Patch1018: 0021-thermal-sun8i-add-sun55i-a523-ths.patch
-Patch1019: 0022-thermal-sun8i-add-sun55i-a523-ddr-ths.patch
-Patch1020: 0023-thermal-sun8i-a523-guard-npu-channel.patch
-Patch1021: 0024-mfd-axp20x-power-off-the-AXP717-via-SOFT_PWROFF.patch
-Patch1022: 0025-watchdog-sunxi_wdt-per-variant-restart-priority.patch
+Patch1012: 0014-dt-bindings-clock-add-sun55i-a523-cpu-ccu.patch
+Patch1013: 0015-clk-sunxi-ng-add-sun55i-a523-cpu-ccu.patch
+Patch1014: 0016-arm64-dts-sun55i-a523-add-cpu-clock-controller.patch
+Patch1015: 0017-clk-sunxi-ng-a523-cpu-reparent-clusters.patch
+Patch1016: 0018-clk-sunxi-ng-a523-cpu-skip-unused-pll-cpu0.patch
+Patch1017: 0019-clk-sunxi-ng-ccu-factor-update-handshake.patch
+Patch1018: 0020-clk-sunxi-ng-a523-cpu-commit-bit26-pll-init.patch
+Patch1019: 0021-thermal-sun8i-add-sun55i-a523-ths.patch
+Patch1020: 0022-thermal-sun8i-add-sun55i-a523-ddr-ths.patch
+Patch1021: 0023-thermal-sun8i-a523-guard-npu-channel.patch
+Patch1022: 0024-mfd-axp20x-power-off-the-AXP717-via-SOFT_PWROFF.patch
+Patch1023: 0025-watchdog-sunxi_wdt-per-variant-restart-priority.patch
 Patch1024: 0027-ASoC-sun4i-codec-sort-sound-includes.patch
 Patch1025: 0028-ASoC-sun4i-codec-separate-DAC-ADC-clocks.patch
 Patch1026: 0029-ASoC-sun4i-codec-A523-playback.patch
@@ -47,30 +47,7 @@ Patch1029: 0032-pinctrl-sunxi-A523-fix-voltage-withstand-encoding.patch
 Patch1030: 0033-mmc-pwrseq-simple-tolerate-missing-reset-controller.patch
 Patch1031: 0034-Input-sun4i-lradc-keys-set-HOLD_KEY_EN-for-A523-r329.patch
 Patch1032: 0035-ASoC-sun4i-codec-A523-enable-Line-Out-ramp-and-VRP-LDO.patch
-Patch1033: 0036-arm64-dts-tg5050-usb-pd-power-and-pins.patch
-Patch1034: 0037-arm64-dts-tg5050-disable-unused-etnaviv-npu-binding.patch
-Patch1035: 0038-drm-sunxi-sun55i-a523-de33-skip-legacy-sram-claim.patch
-Patch1036: 0039-arm64-dts-sun55i-a523-add-display-engine-node.patch
-Patch1037: 0040-drm-sun4i-complete-a523-upstream-de33-integration.patch
-Patch1039: 0042-drm-sun6i-dsi-attach-panel-before-drm-master.patch
-Patch1042: 0045-drm-sun6i-dsi-a523-video-start-delay-one.patch
-Patch1043: 0046-drm-sun6i-dsi-a523-combine-hs-video-start.patch
-Patch1045: 0048-arm64-dts-sun55i-a523-keep-display0-power-domain-on.patch
-Patch1051: 0054-drm-sun4i-a523-enable-lcd1-dsi-top-gate.patch
-Patch1052: 0055-drm-sun4i-dsi-prevent-burst-loop-delay-underflow.patch
-Patch1057: 0060-drm-sun4i-a523-enable-four-phase-tcon-dclk.patch
-Patch1054: 0066-drm-sun4i-a523-implement-cpu-trigger-setup.patch
-Patch1058: 0067-drm-sun4i-route-cpu-trigger-dsi-through-tcon-top.patch
-Patch1055: 0068-drm-sun4i-trace-a523-cpu-trigger-order.patch
-Patch1056: 0069-drm-sun4i-start-cpu-trigger-after-de-commit.patch
-Patch1063: 0071b-drm-sun4i-match-bsp-cpu-dsi-fields-after-trigger-split.patch
-Patch1060: 0073-drm-sun4i-match-bsp-a523-tcon-trigger-fields.patch
-Patch1068: 0072-drm-panel-tg5050-match-vendor-dsi-contract.patch
-Patch1090: 0090-drm-sun8i-a523-de33-shared-plane-refactor.patch
-Patch1091: 0091-dt-bindings-sun55i-a523-de35-planes.patch
-Patch1092: 0092-clk-sunxi-register-a523-de33-plane-mapping-regmap.patch
-Patch1093: 0093-drm-sun4i-a523-open-both-dsi-output-gates.patch
-Patch1094: 0094-drm-sun4i-a523-match-bsp-dsi-video-timing.patch
+
 
 
 
@@ -148,8 +125,6 @@ cp integration/kernel/trimui.config trimui.config
 cp %{SOURCE1001} required.config
 cp %{SOURCE1003} usb-gadget-console.config
 cp %{SOURCE1004} display-built-in.config
-mkdir vendor-sunxi-source
-tar -xf %{SOURCE1005} -C vendor-sunxi-source --strip-components=1
 install -D -m 0644 integration/kernel/drivers/phy-sun55i-dsi-combo.c drivers/phy/allwinner/phy-sun55i-dsi-combo.c
 install -D -m 0644 integration/kernel/drivers/pwm-sun20i.c drivers/pwm/pwm-sun20i.c
 install -D -m 0644 integration/kernel/drivers/panel-trimui-smart-pro-s.c drivers/gpu/drm/panel/panel-trimui-smart-pro-s.c
@@ -157,30 +132,6 @@ for dts in sun55i-a523-trimui-smart-pro-s.dts sun55i-a523.dtsi trimui-de-reconci
     install -D -m 0644 "integration/dts/$dts" "arch/arm64/boot/dts/allwinner/$dts"
 done
 printf '%s\n' 'dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a523-trimui-smart-pro-s.dtb' >> arch/arm64/boot/dts/allwinner/Makefile
-%patch 1033 -p1
-%patch 1034 -p1
-%patch 1035 -p1
-%patch 1036 -p1
-%patch 1037 -p1
-%patch 1039 -p1
-%patch 1042 -p1
-%patch 1043 -p1
-%patch 1045 -p1
-%patch 1051 -p1
-%patch 1052 -p1
-%patch 1057 -p1
-%patch 1054 -p1
-%patch 1058 -p1
-%patch 1055 -p1
-%patch 1056 -p1
-%patch 1063 -p1
-%patch 1060 -p1
-%patch 1068 -p1
-%patch 1090 -p1
-%patch 1091 -p1
-%patch 1092 -p1
-%patch 1093 -p1
-%patch 1094 -p1
 
 
 

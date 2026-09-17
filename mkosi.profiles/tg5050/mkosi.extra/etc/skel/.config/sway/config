@@ -12,13 +12,17 @@ mouse_warping none
 # bar at all: even `mode invisible` starts a swaybar process.
 output * bg #000000 solid_color
 
+# Consume the hardware volume rocker in the compositor. Without these
+# bindings KEY_VOLUMEUP/DOWN falls through to the focused game as keyboard
+# input instead of controlling the default PipeWire sink.
+bindsym --locked XF86AudioLowerVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-
+bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
+
 # Native Wayland and Xwayland windows both become floating.
 for_window [app_id=".*"] floating enable
 for_window [class=".*"] floating enable
 for_window [app_id="foot"] fullscreen enable
 
 # Import Sway's dynamic environment before starting session-bound services.
-# Keep these systemctl calls synchronous: the target must not start before the
-# compositor socket variables have reached the user manager.
-exec "systemctl --user set-environment WAYLAND_DISPLAY=wayland-1; systemctl --user import-environment SWAYSOCK; systemctl --user start sway-session.target"
-exec "swaymsg -t subscribe '[\"shutdown\"]' && systemctl --user stop sway-session.target"
+# The bridge runs inside Sway after its actual Wayland/IPC sockets exist.
+exec /usr/libexec/marina-sway-session

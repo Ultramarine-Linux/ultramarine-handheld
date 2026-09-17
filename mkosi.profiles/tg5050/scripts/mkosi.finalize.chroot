@@ -18,7 +18,10 @@ systemctl enable trimui-inputd.service
 systemctl enable trimui-power-toggle.service
 systemctl enable fancontrol.service
 systemctl enable trimui-audio-mixer.service
+# Enable the Wayland OSD for the fixed ultramarine user session.
+systemctl --global enable awob.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
+chmod 0755 /usr/libexec/marina-sway-session
 chmod 0644 /home/ultramarine/.config/sway/config
 
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
@@ -26,10 +29,10 @@ chmod 0644 /home/ultramarine/.config/sway/config
 systemctl mask kmscon.service kmsconvt@.service
 systemctl disable ultramarine-kms-journal.service
 systemctl mask getty@tty1.service
-# tty1 autologin creates the PAM/logind seat; the login shell starts the Sway
-# user service from .bash_profile. Do not use a display manager on this image.
-systemctl unmask getty@tty1.service 2>/dev/null || true
-systemctl enable getty@tty1.service
+# The system marina service owns tty1 and creates the PAM/logind seat for Sway.
+# Do not race it with an autologin getty or a compositor user service.
+systemctl mask getty@tty1.service
+systemctl enable marina-session.service
 systemctl mask NetworkManager-wait-online.service
 # This appliance is preconfigured; firstboot would wait for interactive input
 # that the handheld cannot provide during early bring-up.

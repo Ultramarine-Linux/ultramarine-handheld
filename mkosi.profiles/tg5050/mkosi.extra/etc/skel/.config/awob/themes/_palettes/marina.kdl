@@ -1,0 +1,19 @@
+palette {
+    bg     "rgba(28, 28, 35, 0.92)"
+    fg     "#f3e8d7"
+    track  "rgba(255, 255, 255, 0.10)"
+    low    "#8fdc55"
+    normal "#baea96"
+    warn   "#e89a49"
+    crit   "#dc8855"
+    binary "#baea96"
+}
+
+styles {
+    style "low"      accent="$low"
+    style "normal"   accent="$normal"
+    style "warn"     accent="$warn"
+    style "critical" accent="$crit"
+    style "muted"    accent="$crit" alpha="0.6"
+    style "binary"   accent="$binary"
+}
