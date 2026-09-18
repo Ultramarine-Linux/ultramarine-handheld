@@ -52,6 +52,8 @@ def write_value(path: Path, value: int) -> None:
 
 ACTIVE_TARGET = "marina-active.target"
 IDLE_TARGET = "marina-idle.target"
+SAVED_BRIGHTNESS = Path("/run/trimui-backlight-brightness")
+DEFAULT_BRIGHTNESS = 100
 
 
 def set_session_state(idle: bool) -> None:
@@ -80,6 +82,33 @@ def set_session_state(idle: bool) -> None:
     LOG.info("Marina session state: %s", "idle" if idle else "active")
 
 
+def read_brightness(backlight: Path) -> int | None:
+    try:
+        value = int(read_text(backlight / "brightness"))
+        maximum = int(read_text(backlight / "max_brightness"))
+    except (OSError, ValueError):
+        return None
+    return value if 0 <= value <= maximum else None
+
+
+def save_brightness(value: int) -> None:
+    temporary = SAVED_BRIGHTNESS.with_name(SAVED_BRIGHTNESS.name + ".tmp")
+    temporary.write_text(f"{value}\n", encoding="ascii")
+    temporary.replace(SAVED_BRIGHTNESS)
+
+
+def saved_brightness(backlight: Path) -> int:
+    maximum = int(read_text(backlight / "max_brightness"))
+    try:
+        value = int(read_text(SAVED_BRIGHTNESS))
+    except (OSError, ValueError):
+        current = read_brightness(backlight)
+        value = current if current is not None and current > 0 else DEFAULT_BRIGHTNESS
+    if not 1 <= value <= maximum:
+        value = min(DEFAULT_BRIGHTNESS, maximum)
+    return value
+
+
 def toggle_backlight() -> bool | None:
     backlight = find_backlight()
     if backlight is None:
@@ -89,8 +118,18 @@ def toggle_backlight() -> bool | None:
     power = backlight / "bl_power"
     try:
         current = int(read_text(power))
-        target = 4 if current == 0 else 0
-        write_value(power, target)
+        if current == 0:
+            value = read_brightness(backlight)
+            if value is not None and value > 0:
+                save_brightness(value)
+            write_value(backlight / "brightness", 0)
+            write_value(power, 4)
+            target = 4
+        else:
+            write_value(power, 0)
+            write_value(backlight / "brightness", saved_brightness(backlight))
+            SAVED_BRIGHTNESS.unlink(missing_ok=True)
+            target = 0
     except (OSError, ValueError) as error:
         LOG.error("cannot toggle %s: %s", power, error)
         return None

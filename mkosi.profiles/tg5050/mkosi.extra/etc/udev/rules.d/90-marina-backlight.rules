@@ -1,0 +1,5 @@
+# Allow the handheld user to adjust the physical panel backlight without
+# granting access to unrelated sysfs devices or using a root helper.
+ACTION=="add", SUBSYSTEM=="backlight", GROUP="video", MODE="0660", \
+  RUN+="/usr/bin/chgrp video /sys%p/brightness", \
+  RUN+="/usr/bin/chmod 0660 /sys%p/brightness"

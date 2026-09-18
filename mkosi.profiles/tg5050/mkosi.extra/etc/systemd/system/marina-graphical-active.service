@@ -2,6 +2,9 @@
 Description=Thaw Marina graphical workloads
 PartOf=marina-active.target
 Before=marina-active.target
+Conflicts=marina-graphical-idle.service
+Wants=user@1000.service
+After=user@1000.service
 
 [Service]
 Type=oneshot

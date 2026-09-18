@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# systemd-sysupdate stages a matched version into regular files. This helper
+# commits that version to the vendor's fixed p2/p3 partitions and raw package
+# location without changing PARTLABEL=env or PARTLABEL=boot.
+readonly DISK=/dev/mmcblk0
+readonly ENV_PART=/dev/mmcblk0p2
+readonly BOOT_PART=/dev/mmcblk0p3
+readonly ROOT_PART=/dev/mmcblk0p4
+readonly PACKAGE_LBA=32800
+readonly GPT_FIRST_USABLE_LBA=73728
+readonly STATE=/var/lib/tg5050/sysupdate
+readonly STAGED="$STATE/staged"
+readonly BACKUPS="$STATE/backups"
+
+[[ -b "$DISK" && -b "$ENV_PART" && -b "$BOOT_PART" && -b "$ROOT_PART" ]]
+[[ "$(findmnt -n -o SOURCE /)" == "$ROOT_PART" ]]
+[[ "$(lsblk -no PARTLABEL "$ENV_PART")" == "env" ]]
+[[ "$(lsblk -no PARTLABEL "$BOOT_PART")" == "boot" ]]
+
+mkdir -p "$BACKUPS"
+exec 9>/run/lock/tg5050-sysupdate-raw-boot-package.lock
+flock -n 9 || exit 0
+
+p3=
+p2=
+package=
+for _ in $(seq 1 30); do
+    p3=$(find "$STAGED" -maxdepth 1 -type f -name 'tg5050_*.p3-kernel.img' -printf '%f\n' | sort -V | tail -n 1 || true)
+    p2=$(find "$STAGED" -maxdepth 1 -type f -name 'tg5050_*.p2-env.img' -printf '%f\n' | sort -V | tail -n 1 || true)
+    package=$(find "$STAGED" -maxdepth 1 -type f -name 'tg5050_*.boot-package.fex' -printf '%f\n' | sort -V | tail -n 1 || true)
+    [[ -n "$p3" && -n "$p2" ]] && break
+    sleep 1
+done
+[[ -n "$p3" && -n "$p2" ]] || exit 0
+
+version_p3=${p3#tg5050_}; version_p3=${version_p3%.p3-kernel.img}
+version_p2=${p2#tg5050_}; version_p2=${version_p2%.p2-env.img}
+test "$version_p3" = "$version_p2"
+if [[ -n "$package" ]]; then
+    version_package=${package#tg5050_}; version_package=${version_package%.boot-package.fex}
+    test "$version_p3" = "$version_package"
+fi
+
+p3="$STAGED/$p3"
+p2="$STAGED/$p2"
+[[ -s "$p3" && -s "$p2" ]]
+p3_size=$(stat -c %s "$p3")
+p2_size=$(stat -c %s "$p2")
+env_bytes=$(blockdev --getsize64 "$ENV_PART")
+boot_bytes=$(blockdev --getsize64 "$BOOT_PART")
+test "$p2_size" = "$env_bytes"
+(( p3_size <= boot_bytes ))
+
+package_size=0
+if [[ -n "$package" ]]; then
+    package="$STAGED/$package"
+    package_size=$(stat -c %s "$package")
+    disk_bytes=$(blockdev --getsize64 "$DISK")
+    package_offset=$((PACKAGE_LBA * 512))
+    raw_limit=$((GPT_FIRST_USABLE_LBA * 512))
+    (( package_size > 0 && package_offset + package_size <= raw_limit && package_offset + package_size <= disk_bytes ))
+fi
+
+p2_sha=$(sha256sum "$p2" | awk '{print $1}')
+p3_sha=$(sha256sum "$p3" | awk '{print $1}')
+package_sha=
+if (( package_size > 0 )); then
+    package_sha=$(sha256sum "$package" | awk '{print $1}')
+fi
+marker="$STATE/${version_p3}.committed"
+[[ -e "$marker" ]] && exit 0
+
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+backup="$BACKUPS/$stamp-$version_p3"
+mkdir -p "$backup"
+dd if="$ENV_PART" of="$backup/p2-before.img" bs=4M iflag=fullblock status=none
+dd if="$BOOT_PART" of="$backup/p3-before.img" bs=4M iflag=fullblock status=none
+if (( package_size > 0 )); then
+    dd if="$DISK" bs=512 skip="$PACKAGE_LBA" count="$(( (package_size + 511) / 512 ))" iflag=skip_bytes,count_bytes,fullblock of="$backup/boot-package-before.fex" status=none
+fi
+sha256sum "$backup"/* > "$backup/SHA256SUMS.before"
+
+# Write payload bytes only; preserve vendor partition numbering and labels.
+dd if="$p2" of="$ENV_PART" bs=4M conv=fsync status=none
+dd if=/dev/zero of="$BOOT_PART" bs=4M count=$(( (boot_bytes + 4194303) / 4194304 )) status=none
+dd if="$p3" of="$BOOT_PART" bs=4M conv=fsync status=none
+if (( package_size > 0 )); then
+    dd if="$package" of="$DISK" bs=512 seek="$PACKAGE_LBA" conv=notrunc,fsync status=none
+fi
+sync
+
+actual_p2=$(sha256sum "$ENV_PART" | awk '{print $1}')
+actual_p3=$(dd if="$BOOT_PART" bs=1 count="$p3_size" iflag=count_bytes,fullblock status=none | sha256sum | awk '{print $1}')
+test "$actual_p2" = "$p2_sha"
+test "$actual_p3" = "$p3_sha"
+if (( package_size > 0 )); then
+    actual_package=$(dd if="$DISK" bs=1 skip="$package_offset" count="$package_size" iflag=skip_bytes,count_bytes,fullblock status=none | sha256sum | awk '{print $1}')
+    test "$actual_package" = "$package_sha"
+else
+    actual_package=
+fi
+{
+    printf 'version=%s\n' "$version_p3"
+    printf 'p2=%s\np3=%s\n' "$actual_p2" "$actual_p3"
+    [[ -n "$actual_package" ]] && printf 'package=%s\n' "$actual_package"
+} > "$backup/SHA256SUMS.after"
+printf '%s\n' "$backup" > "$STATE/last-sysupdate-backup"
+touch "$marker"

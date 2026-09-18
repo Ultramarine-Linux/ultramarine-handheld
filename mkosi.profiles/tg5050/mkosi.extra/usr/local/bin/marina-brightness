@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+step=5
+read -r current maximum < <(
+    /usr/bin/brightnessctl -m |
+        /usr/bin/awk -F, '$2 == "backlight" { print $3, $5; exit }'
+)
+
+if [[ ! $current =~ ^[0-9]+$ || ! $maximum =~ ^[0-9]+$ ]]; then
+    echo 'no usable backlight device found' >&2
+    exit 1
+fi
+
+case ${1:?usage: marina-brightness up|down} in
+    up)   value=$((current + step)) ;;
+    down) value=$((current - step)) ;;
+    *)    echo "usage: marina-brightness up|down" >&2; exit 2 ;;
+esac
+
+(( value < 1 )) && value=1
+(( value > maximum )) && value=$maximum
+/usr/bin/brightnessctl -q set "$value"

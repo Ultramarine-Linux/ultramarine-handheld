@@ -118,7 +118,7 @@ The vendor 5.15 kernel exposes two cpufreq policies:
 
 ```text
 policy0: little cluster, 408000..1416000 kHz
-policy4: big cluster,    408000..2160000 kHz
+policy4: big cluster,    408000..1992000 kHz
 ```
 
 The live driver is `cpufreq-dt`. Available governors on the current image are:

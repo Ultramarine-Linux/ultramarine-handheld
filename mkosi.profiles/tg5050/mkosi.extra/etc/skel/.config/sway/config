@@ -16,7 +16,19 @@ mouse_warping none
 # input instead of controlling the default PipeWire sink.
 bindsym --locked XF86AudioLowerVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-
 bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
-bindsym --locked XF86HomePage exec sh -c 'capacity=$(cat /sys/class/power_supply/axp2202-battery/capacity) && awob send --preempt --icon battery battery "$capacity" 100'
+
+# Home acts as a chord prefix for active-mode brightness control. Volume keys
+# retain their normal audio behavior outside this temporary mode.
+mode "brightness" {
+    bindsym --locked XF86AudioLowerVolume exec sh -c '/usr/local/bin/marina-brightness down; swaymsg mode default'
+    bindsym --locked XF86AudioRaiseVolume exec sh -c '/usr/local/bin/marina-brightness up; swaymsg mode default'
+    bindcode --locked 122 exec sh -c '/usr/local/bin/marina-brightness down; swaymsg mode default'
+    bindcode --locked 123 exec sh -c '/usr/local/bin/marina-brightness up; swaymsg mode default'
+    bindsym --locked XF86HomePage mode "default"
+    bindsym --locked Escape mode "default"
+}
+bindsym --locked XF86HomePage exec sh -c 'swaymsg mode brightness; (sleep 2; swaymsg mode default) &'
+bindcode --locked 180 exec sh -c 'swaymsg mode brightness; (sleep 2; swaymsg mode default) &'
 
 # Native Wayland and Xwayland windows both become floating.
 for_window [app_id=".*"] floating enable

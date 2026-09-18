@@ -65,11 +65,11 @@ BuildRequires: dtc
 %global debug_package %{nil}
 # Optional host-tool flags for immutable build hosts. Normal builds get these
 # from BuildRequires: openssl-devel-engine and leave the macro empty.
-%global kernel_hostcflags %{nil}
-%global kernel_hostldflags %{nil}
-%global kernel_pkgconfigpath %{nil}
-%global kernel_cryptocflags %{nil}
-%global kernel_cryptolibs %{nil}
+%{!?kernel_hostcflags:%global kernel_hostcflags %{nil}}
+%{!?kernel_hostldflags:%global kernel_hostldflags %{nil}}
+%{!?kernel_pkgconfigpath:%global kernel_pkgconfigpath %{nil}}
+%{!?kernel_cryptocflags:%global kernel_cryptocflags %{nil}}
+%{!?kernel_cryptolibs:%global kernel_cryptolibs %{nil}}
 
 %description
 Boot-tested custom Allwinner A523 vendor-BSP kernel for the TrimUI Smart Pro S.

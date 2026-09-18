@@ -1,0 +1,12 @@
+[Transfer]
+
+[Source]
+Type=regular-file
+Path=/var/lib/tg5050/sysupdate/source
+MatchPattern=tg5050_@v.p3-kernel.img
+
+[Target]
+Type=regular-file
+Path=/var/lib/tg5050/sysupdate/staged
+MatchPattern=tg5050_@v.p3-kernel.img
+Mode=0644

@@ -85,6 +85,15 @@ user_graphical_state() {
     # create a transient PAM/Wayland session during the freeze transition.
     # Use the already-running user manager directly instead; the user manager
     # is lingered so its bus remains available without a login session.
+    local attempt
+    for attempt in {1..50}; do
+        test -S /run/user/1000/bus && break
+        sleep 0.1
+    done
+    test -S /run/user/1000/bus || {
+        /usr/bin/logger -t marina-graphical-state 'user D-Bus socket did not appear'
+        return 1
+    }
     /usr/bin/runuser -u ultramarine -- env \
         XDG_RUNTIME_DIR=/run/user/1000 \
         DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \

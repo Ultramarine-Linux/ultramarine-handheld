@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Stage one matched TG5050 sysupdate set; do not execute the update.
+set -euo pipefail
+
+usage() {
+    printf 'usage: %s TARGET VERSION P3-IMAGE P2-IMAGE BOOT-PACKAGE\n' "$0" >&2
+    exit 2
+}
+
+[[ $# -eq 5 ]] || usage
+target=$1
+version=$2
+p3=$3
+p2=$4
+package=$5
+[[ $version =~ ^[0-9][0-9A-Za-z._-]*$ ]] || {
+    printf 'invalid version: %s\n' "$version" >&2
+    exit 2
+}
+for f in "$p3" "$p2" "$package"; do
+    [[ -f "$f" && -s "$f" ]] || {
+        printf 'missing artifact: %s\n' "$f" >&2
+        exit 1
+    }
+done
+
+p3_size=$(stat -c %s "$p3")
+p2_size=$(stat -c %s "$p2")
+package_size=$(stat -c %s "$package")
+(( p3_size <= 96 * 1024 * 1024 ))
+(( p2_size == 16 * 1024 * 1024 ))
+(( package_size > 0 && package_size <= (73728 - 32800) * 512 ))
+
+p3_sha=$(sha256sum "$p3" | awk '{print $1}')
+p2_sha=$(sha256sum "$p2" | awk '{print $1}')
+package_sha=$(sha256sum "$package" | awk '{print $1}')
+remote="root@${target}"
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$remote" true
+scp -q -o BatchMode=yes -o ConnectTimeout=8 \
+    "$p3" "$p2" "$package" "$remote:/var/tmp/"
+
+ssh -o BatchMode=yes -o ConnectTimeout=8 "$remote" bash -s -- \
+    "$version" "$(basename "$p3")" "$(basename "$p2")" \
+    "$(basename "$package")" "$p3_sha" "$p2_sha" "$package_sha" <<'REMOTE'
+set -euo pipefail
+version=$1; p3_name=$2; p2_name=$3; package_name=$4
+expected_p3=$5; expected_p2=$6; expected_package=$7
+for pair in \
+    "/var/tmp/$p3_name $expected_p3" \
+    "/var/tmp/$p2_name $expected_p2" \
+    "/var/tmp/$package_name $expected_package"; do
+    set -- $pair
+    test "$(sha256sum "$1" | awk '{print $1}')" = "$2"
+done
+state=/var/lib/tg5050/sysupdate
+source="$state/source"
+mkdir -p "$source"
+install -m 0644 "/var/tmp/$p3_name" \
+    "$source/tg5050_${version}.p3-kernel.img"
+install -m 0644 "/var/tmp/$p2_name" \
+    "$source/tg5050_${version}.p2-env.img"
+install -m 0644 "/var/tmp/$package_name" \
+    "$source/tg5050_${version}.boot-package.fex"
+sha256sum \
+    "$source/tg5050_${version}.p3-kernel.img" \
+    "$source/tg5050_${version}.p2-env.img" \
+    "$source/tg5050_${version}.boot-package.fex" \
+    > "$state/tg5050_${version}.SHA256SUMS"
+rm -f "/var/tmp/$p3_name" "/var/tmp/$p2_name" "/var/tmp/$package_name"
+printf 'staged=%s\\n' "$version"
+cat "$state/tg5050_${version}.SHA256SUMS"
+REMOTE

@@ -23,6 +23,9 @@ mkdir -p /var/lib/systemd/linger
 touch /var/lib/systemd/linger/ultramarine
 mkdir -p /var/lib/marina
 printf 'balanced\n' > /var/lib/marina/last-power-profile
+mkdir -p /var/lib/tg5050/sysupdate/source /var/lib/tg5050/sysupdate/staged \
+    /var/lib/tg5050/sysupdate/backups /run/lock
+chmod 0755 /usr/local/libexec/tg5050-sysupdate-raw-boot-package
 # Enable the Wayland OSD for the fixed ultramarine user session.
 systemctl --global enable awob.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
