@@ -1,6 +1,7 @@
 # TG5050 pwm-fan configuration for the vendor kernel.
-# The pwmfan hwmon device is registered after the fixed USB/battery hwmon
-# devices on this board and is hwmon8 on the current release-8 boot.
+# The fancontrol.service drop-in generates a dynamic config by locating the
+# hwmon device whose name is pwmfan. Do not hardcode the hwmonN index here:
+# registration order changes across boots/resume.
 INTERVAL=2
 FCTEMPS=/sys/class/hwmon/hwmon8/pwm1=/sys/class/thermal/thermal_zone1/temp
 FCFANS=

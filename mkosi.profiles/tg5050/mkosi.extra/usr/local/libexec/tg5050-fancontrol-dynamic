@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+hwmon=
+for d in /sys/class/hwmon/hwmon*; do
+    [[ -r "$d/name" && -w "$d/pwm1" ]] || continue
+    [[ $(<"$d/name") == pwmfan ]] || continue
+    hwmon=$d
+    break
+done
+[[ -n "$hwmon" ]] || {
+    echo 'pwmfan hwmon device not found' >&2
+    exit 1
+}
+
+config=/run/tg5050-fancontrol
+cat >"$config" <<EOF
+INTERVAL=2
+FCTEMPS=$hwmon/pwm1=/sys/class/thermal/thermal_zone1/temp
+FCFANS=
+MINTEMP=$hwmon/pwm1=35
+MAXTEMP=$hwmon/pwm1=60
+MINSTART=$hwmon/pwm1=100
+MINSTOP=$hwmon/pwm1=100
+MINPWM=$hwmon/pwm1=1
+MAXPWM=$hwmon/pwm1=255
+AVERAGE=$hwmon/pwm1=3
+EOF
+
+exec /usr/sbin/fancontrol "$config"

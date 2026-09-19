@@ -1,2 +1,2 @@
 # TrimUI Smart Pro S virtual controller SDL mapping.
-030000005e0400008e02000014010000,TRIMUI Smart Pro S Controller,platform:Linux,b:b1,a:b0,dpdown:h0.4,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,leftstick:b11,dpleft:h0.8,rightshoulder:b5,leftshoulder:b4,righttrigger:b7,rightstick:b12,dpright:h0.2,back:b8,start:b9,dpup:h0.1,y:b3,x:b2,guide:b10,
+030000005e0400008e02000014010000,TRIMUI Smart Pro S Controller,platform:Linux,b:b1,a:b0,dpdown:h0.4,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,leftstick:b11,dpleft:h0.8,rightshoulder:b5,leftshoulder:b4,righttrigger:b7,rightstick:b12,dpright:h0.2,back:b8,start:b9,dpup:h0.1,y:b2,x:b3,guide:b10,
