@@ -3,6 +3,8 @@ Description=Freeze Marina graphical workloads
 PartOf=marina-idle.target
 Before=marina-idle.target
 Conflicts=marina-graphical-active.service
+Wants=graphical.slice
+After=graphical.slice
 
 [Service]
 Type=oneshot

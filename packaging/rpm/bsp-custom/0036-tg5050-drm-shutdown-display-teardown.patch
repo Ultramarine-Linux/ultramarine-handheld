@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@fyralabs.com>
+Date: Sat, 19 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sunxi: shut down display pipeline before reboot
+
+The DRM master previously only called drm_atomic_helper_shutdown() from
+unbind. A warm reboot does not necessarily unbind the platform device, so
+the panel, DSI PHY, TCON, and display-engine state could remain active when
+U-Boot started. Explicitly perform the DRM shutdown from the platform
+shutdown callback, using the existing component/encoder teardown path.
+
+This is deliberately limited to the master shutdown lifecycle; it does not
+add guessed MMIO programming or alter normal suspend/resume ordering.
+
+--- a/drivers/drm/sunxi_drm_drv.c
++++ b/drivers/drm/sunxi_drm_drv.c
+@@ -1367,6 +1367,14 @@
+ 	return 0;
+ }
+ 
++static void sunxi_drm_platform_shutdown(struct platform_device *pdev)
++{
++	struct drm_device *drm = platform_get_drvdata(pdev);
++
++	if (drm)
++		drm_atomic_helper_shutdown(drm);
++}
++
+ #if IS_ENABLED(CONFIG_PM_SLEEP)
+ static int sunxi_drm_suspend(struct device *dev)
+ {
+@@ -1398,6 +1406,7 @@
+ 
+ static struct platform_driver sunxi_drm_platform_driver = {
+ 	.probe = sunxi_drm_platform_probe,
++	.shutdown = sunxi_drm_platform_shutdown,
+ 	.remove = sunxi_drm_platform_remove,
+ 	.driver = {
+ 		.owner = THIS_MODULE,
+ 		.name = "sunxi-drm",
+-- 
+2.47.0

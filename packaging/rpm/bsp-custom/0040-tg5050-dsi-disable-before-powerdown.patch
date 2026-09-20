@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: TG5050 reconstruction <noreply@example.invalid>
+Date: Sat, 19 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sunxi: stop DSI output before panel and clock teardown
+
+The DSI atomic-disable path previously unprepared the panel, powered off
+the PHY and clocks, and only then disabled DSI output and exited TCON mode.
+That leaves output registers and interrupt state to be changed after the
+hardware required to perform the shutdown has already been reset.
+
+Stop the DSI output and exit TCON mode while the link is still powered, then
+put the panel to sleep and complete PHY/clock/reset teardown. This is the
+common disable sequence used by output removal, suspend, and shutdown.
+
+--- a/drivers/drm/sunxi_drm_dsi.c
++++ b/drivers/drm/sunxi_drm_dsi.c
+@@ -938,6 +938,9 @@
+ #endif
+ 	if (dsi->te_gpio)
+ 		esd_watchdog_stop(dsi->esd_wdt);
++	sunxi_dsi_disable_output(dsi);
++	sunxi_tcon_mode_exit(dsi->sdrm.tcon_dev);
++
+ 	drm_panel_disable(dsi->sdrm.panel);
+ 
+ 	drm_panel_unprepare(dsi->sdrm.panel);
+@@ -958,9 +961,6 @@
+ 	sunxi_lcd_pin_set_state(dsi->dev, "sleep");
+ 	if (dsi->slave)
+ 		sunxi_lcd_pin_set_state(dsi->slave->dev, "sleep");
+-	sunxi_dsi_disable_output(dsi);
+-	sunxi_tcon_mode_exit(dsi->sdrm.tcon_dev);
+-
+ 	dsi->enable = false;
+ 	DRM_DEBUG_DRIVER("%s finish\n", __FUNCTION__);
+ }

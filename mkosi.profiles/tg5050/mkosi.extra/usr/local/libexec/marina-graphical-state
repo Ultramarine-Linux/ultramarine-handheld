@@ -123,5 +123,10 @@ if [[ $state == idle ]]; then
     stop_idle_fan
     queue_tuned_profile marina-minimal
 else
+    # Persist the selected non-minimal profile before queueing the asynchronous
+    # TuneD request, so a startup race or failed transition cannot lose the
+    # last known wake profile.
+    printf '%s\n' "${restore_profile:-balanced}" > "$profile_state.tmp"
+    mv -f "$profile_state.tmp" "$profile_state"
     queue_tuned_profile "${restore_profile:-balanced}"
 fi

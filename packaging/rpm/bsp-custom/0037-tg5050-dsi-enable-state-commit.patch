@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@fyralabs.com>
+Date: Sat, 19 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sunxi: commit DSI enabled state after initialization
+
+The DSI atomic-enable path set dsi->enable before clock, PHY, panel, and
+output initialization completed. If clock setup failed, the function could
+return with dsi->enable still true. A subsequent modeset, output re-add, or
+resume then took the already-enabled VRR path and skipped full DSI setup.
+
+Keep the state false until the complete enable sequence has run. This makes
+failed or partial enables retryable and applies equally to output hotplug,
+suspend/resume, and warm handoff.
+
+--- a/drivers/drm/sunxi_drm_dsi.c
++++ b/drivers/drm/sunxi_drm_dsi.c
+@@ -817,7 +817,6 @@
+ 			DRM_ERROR("Couldn't request the IRQ for dsi\n");
+ 		}
+ 	}
+-	dsi->enable = true;
+ 
+ 	if (dsi->dsi_para.mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+ 		dsi->dsi_para.timings.pixel_clk = dsi->dsi_para.timings.pixel_clk * 10 / 9;
+@@ -901,6 +900,8 @@
+ 		dsi->pending_enable_vblank = false;
+ 	}
+ 	drm_panel_enable(dsi->sdrm.panel);
++	dsi->enable = true;
++
+ 	if (dsi->te_gpio)
+ 		esd_watchdog_start(dsi->esd_wdt);
+ 	DRM_INFO("[DSI] %s finish\n", __FUNCTION__);

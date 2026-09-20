@@ -48,6 +48,11 @@ Patch29: 0032-tg5050-vendor-usb-supply-phandles.patch
 Patch30: 0033-tg5050-vendor-husb311-typec-graph.patch
 Patch31: 0034-tg5050-vendor-drm-dp-status.patch
 Patch32: 0035-tg5050-vendor-husb311-vbus-supply.patch
+Patch33: 0036-tg5050-drm-shutdown-display-teardown.patch
+Patch34: 0037-tg5050-dsi-enable-state-commit.patch
+Patch35: 0038-tg5050-dsi-burst-clock-reenable.patch
+Patch36: 0039-tg5050-panel-unprepare-cleanup.patch
+Patch37: 0040-tg5050-dsi-disable-before-powerdown.patch
 
 
 
@@ -138,6 +143,11 @@ printf '%s\n' '#ifndef __SUNXI_AUTOGEN_H__' '#define __SUNXI_AUTOGEN_H__' \
 %patch 30 -p1 -d board -F 0
 %patch 31 -p1 -d bsp -F 0
 %patch 32 -p1 -d board -F 0
+%patch 33 -p1 -d bsp -F 0
+%patch 34 -p1 -d bsp -F 0
+%patch 35 -p1 -d bsp -F 0
+%patch 36 -p1 -d bsp -F 0
+%patch 37 -p1 -d bsp -F 0
 cp bsp/configs/linux-5.15/sun55iw3p1.dtsi \
     arch/arm64/boot/dts/sunxi/sun55iw3p1.dtsi
 cp board/configs/pro3_linux_aiot/linux-5.15/board.dts \
@@ -181,7 +191,7 @@ make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" LOCALVERSION= \
-    CRYPTO_CFLAGS="%{kernel_cryptocflags}" CRYPTO_LIBS="%{kernel_cryptolibs}" \
+    V=1 CRYPTO_CFLAGS="%{kernel_cryptocflags}" CRYPTO_LIBS="%{kernel_cryptolibs}" \
     -j%{?_smp_build_ncpus}%{!?_smp_build_ncpus:1} Image modules dtbs
 %endif
 

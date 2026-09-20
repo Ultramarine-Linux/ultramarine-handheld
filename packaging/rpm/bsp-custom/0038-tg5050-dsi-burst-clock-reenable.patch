@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Cappy Ishihara <cappy@fyralabs.com>
+Date: Sat, 19 Sep 2026 00:00:00 +0000
+Subject: [PATCH] drm: sunxi: avoid accumulating DSI burst clock correction
+
+The DSI enable path applied the burst-mode 10/9 correction directly to the
+stored mode pixel clock. Re-enabling an output without rebuilding the mode
+then applied the correction repeatedly, causing the PHY and link clocks to
+drift on each Sway output cycle or suspend/resume attempt.
+
+Keep the mode timing immutable and apply the burst correction only to the
+per-enable local clock calculation.
+
+--- a/drivers/drm/sunxi_drm_dsi.c
++++ b/drivers/drm/sunxi_drm_dsi.c
+@@ -744,7 +744,7 @@
+ void sunxi_drm_dsi_encoder_atomic_enable(struct drm_encoder *encoder,
+ 					struct drm_atomic_state *state)
+ {
+-	int ret, bpp, lcd_div;
++	int ret, bpp, lcd_div, pixel_clk;
+ 	struct drm_crtc *crtc = encoder->crtc;
+ 	int de_hw_id = sunxi_drm_crtc_get_hw_id(crtc);
+ 	struct drm_crtc_state *crtc_state = crtc->state;
+@@ -818,10 +818,11 @@
+ 		}
+ 	}
+ 
++	pixel_clk = dsi->dsi_para.timings.pixel_clk;
+ 	if (dsi->dsi_para.mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+-		dsi->dsi_para.timings.pixel_clk = dsi->dsi_para.timings.pixel_clk * 10 / 9;
+-	dsi->ls_clk_rate = dsi->dsi_para.timings.pixel_clk;
+-	dsi->hs_clk_rate = dsi->dsi_para.timings.pixel_clk * lcd_div;
++		pixel_clk = pixel_clk * 10 / 9;
++	dsi->ls_clk_rate = pixel_clk;
++	dsi->hs_clk_rate = pixel_clk * lcd_div;
+ 	ret = sunxi_dsi_clk_config_enable(dsi);
+ 	if (ret) {
+ 		DRM_ERROR("dsi clk enable failed\n");
