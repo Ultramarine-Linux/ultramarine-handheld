@@ -1,0 +1,5 @@
+# Allow the input group (including the ultramarine appliance user) to create
+# virtual input devices. DeviceAllow alone cannot grant this: the host node
+# is root-only, so the group permission must come from udev. Needed by the
+# PortMaster input sandbox and the board input daemon.
+KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660"

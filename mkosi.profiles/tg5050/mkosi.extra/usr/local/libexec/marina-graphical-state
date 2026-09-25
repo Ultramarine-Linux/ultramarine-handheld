@@ -3,6 +3,7 @@ set -euo pipefail
 
 state=${1:?usage: marina-graphical-state active|idle}
 profile_state=/var/lib/marina/last-power-profile
+cpu_state=/var/lib/marina/last-cpu-online
 
 mkdir -p "${profile_state%/*}"
 
@@ -80,6 +81,70 @@ start_active_fan() {
         /usr/bin/logger -t marina-graphical-state 'unable to start fancontrol'
 }
 
+stop_idle_cpus() {
+    # Fake-suspend core parking: offline every CPU except the boot CPU while
+    # the graphical workload is frozen. Record what was online so wake
+    # restores exactly that set. Like ROCKNIX, process affinity is not
+    # preserved across the transition; we pin nothing, so this is safe.
+    local cpu online=""
+    for cpu in /sys/devices/system/cpu/cpu[1-9]*; do
+        cpu=${cpu##*/cpu}
+        if [[ $(cat "/sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null) == 1 ]]; then
+            online="$online $cpu"
+            printf '0\n' > "/sys/devices/system/cpu/cpu$cpu/online" || \
+                /usr/bin/logger -t marina-graphical-state "unable to offline cpu$cpu"
+        fi
+    done
+    printf '%s\n' "$online" > "$cpu_state.tmp"
+    mv -f "$cpu_state.tmp" "$cpu_state"
+}
+
+start_active_cpus() {
+    # Bring back exactly the set recorded at idle time. With no record (for
+    # example first boot after this change), online everything but cpu0.
+    local cpu
+    if test -s "$cpu_state"; then
+        for cpu in $(cat "$cpu_state"); do
+            printf '1\n' > "/sys/devices/system/cpu/cpu$cpu/online" || \
+                /usr/bin/logger -t marina-graphical-state "unable to online cpu$cpu"
+        done
+    else
+        for cpu in /sys/devices/system/cpu/cpu[1-9]*; do
+            cpu=${cpu##*/cpu}
+            printf '1\n' > "/sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
+        done
+    fi
+}
+
+user_graphical_ctl() {
+    /usr/bin/runuser -u ultramarine -- env \
+        XDG_RUNTIME_DIR=/run/user/1000 \
+        DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        /usr/bin/systemctl --user "$@"
+}
+
+system_graphical_ctl() {
+    /usr/bin/systemctl "$@"
+}
+
+# Freeze/thaw the graphical slices, tolerating slices that are not active
+# yet (fresh boot: the session starts after this service; nothing is frozen
+# yet so there is nothing to thaw). Genuine failures still abort.
+graphical_op() {
+    local ctl=$1 operation=$2 output
+    if output=$("$ctl" "$operation" graphical.slice 2>&1); then
+        return 0
+    fi
+    if [[ $output == *"is not active"* || $output == *"not found"* || \
+          $output == *"No such"* ]]; then
+        /usr/bin/logger -t marina-graphical-state \
+            "graphical.slice not active during $operation; nothing to $operation"
+        return 0
+    fi
+    printf '%s\n' "$output" >&2
+    return 1
+}
+
 user_graphical_state() {
     # Calling systemctl --machine=... --user starts a stdio bridge and can
     # create a transient PAM/Wayland session during the freeze transition.
@@ -94,10 +159,7 @@ user_graphical_state() {
         /usr/bin/logger -t marina-graphical-state 'user D-Bus socket did not appear'
         return 1
     }
-    /usr/bin/runuser -u ultramarine -- env \
-        XDG_RUNTIME_DIR=/run/user/1000 \
-        DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-        /usr/bin/systemctl --user "$1" graphical.slice
+    graphical_op user_graphical_ctl "$1"
 }
 
 case "$state" in
@@ -108,6 +170,9 @@ case "$state" in
     active)
         restore_active_tuning
         start_active_fan
+        # Online CPUs before thawing: thawed work needs somewhere to run,
+        # and the TuneD restore queued below expects the policies present.
+        start_active_cpus
         operation=thaw
         ;;
     *) echo "unknown graphical state: $state" >&2; exit 2 ;;
@@ -117,11 +182,14 @@ esac
 # systemd managers. Freeze the user workload first: freezing the system slice
 # first can stall the user manager's own freeze transaction until timeout.
 user_graphical_state "$operation"
-/usr/bin/systemctl "$operation" graphical.slice
+graphical_op system_graphical_ctl "$operation"
 
 if [[ $state == idle ]]; then
     stop_idle_fan
     queue_tuned_profile marina-minimal
+    # Park cores after the minimal profile is queued: offlined policies need
+    # no frequency floors, and cpu0's policy is always present for TuneD.
+    stop_idle_cpus
 else
     # Persist the selected non-minimal profile before queueing the asynchronous
     # TuneD request, so a startup race or failed transition cannot lose the

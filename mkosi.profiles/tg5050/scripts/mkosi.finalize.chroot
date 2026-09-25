@@ -15,7 +15,9 @@ mkdir -p /etc/systemd/system/sysinit.target.wants
 ln -sfn /usr/lib/systemd/system/systemd-repart.service \
     /etc/systemd/system/sysinit.target.wants/systemd-repart.service
 systemctl enable trimui-inputd.service
-systemctl enable trimui-power-toggle.service
+# trimui-power-toggle is retired: the power button suspends via logind
+# (see logind.conf.d/trimui-power.conf). Kept installed but disabled.
+systemctl disable trimui-power-toggle.service
 systemctl enable trimui-audio-mixer.service
 # Keep the user manager and D-Bus available while the graphical workloads are
 # frozen; this avoids creating a transient login session during wake/freeze.
@@ -30,7 +32,7 @@ chmod 0755 /usr/local/libexec/tg5050-sysupdate-raw-boot-package
 systemctl --global enable awob.service
 chmod 0755 /usr/local/bin/trimui-audio-mixer
 chmod 0755 /usr/libexec/marina-sway-session
-chmod 0644 /home/ultramarine/.config/sway/config
+chmod 0644 /var/games/home/.config/sway/config
 
 # Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
 # the autologin Sway/logind session.

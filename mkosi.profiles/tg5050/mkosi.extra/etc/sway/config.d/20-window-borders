@@ -1,0 +1,3 @@
+# Window borders on normal clients; the Marina shell stays borderless.
+default_border pixel 2
+for_window [app_id="org.ultramarinelinux.MarinaShell"] border none

@@ -5,7 +5,6 @@ PartOf=sway-session.target
 [Service]
 Type=simple
 Environment=SHELL=/bin/bash
-Environment=HOME=/home/ultramarine
 ExecStartPre=-/usr/bin/zellij delete-session --force remote
 ExecStart=/usr/bin/foot zellij -s remote
 ExecStopPost=-/usr/bin/zellij delete-session --force remote

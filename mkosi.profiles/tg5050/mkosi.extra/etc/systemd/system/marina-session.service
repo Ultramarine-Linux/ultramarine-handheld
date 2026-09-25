@@ -20,7 +20,6 @@ StandardError=journal
 TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
-Environment=HOME=/home/ultramarine
 Environment=USER=ultramarine
 Environment=LOGNAME=ultramarine
 Environment=XDG_RUNTIME_DIR=/run/user/1000

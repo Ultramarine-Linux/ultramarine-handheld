@@ -74,6 +74,54 @@ jobs:
           if-no-files-found: error
           path: anda-build/
 
+  bsp-custom:
+    name: kernel-tg5050-bsp-custom (Andaman RPM)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
+    timeout-minutes: 180
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      CC: "sccache gcc"
+      HOSTCC: "sccache gcc"
+      HOSTCXX: "sccache g++"
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Install RPM build tools
+        run: |
+          dnf install --assumeyes dnf-plugins-core git python3
+
+      - name: Install BSP custom kernel build dependencies
+        run: |
+          dnf builddep --assumeyes packaging/rpm/bsp-custom/kernel-tg5050-bsp-custom.spec
+
+      - name: Build BSP custom kernel RPMs with Andaman
+        run: |
+          anda build -rrpmbuild packaging/rpm/bsp-custom
+
+      - name: Show BSP custom kernel sccache statistics
+        if: always()
+        run: sccache --show-stats
+
+      - name: Locate BSP custom kernel build artifacts
+        run: |
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
+      - name: Upload BSP custom kernel RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-tg5050-bsp-custom-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: anda-build/
+
   uboot:
     name: uboot-images-tg5050 (Andaman RPM)
     runs-on: ubuntu-24.04-arm
@@ -219,5 +267,41 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kmod-panfrost-rpms-${{ github.sha }}
+          if-no-files-found: error
+          path: anda-build/
+
+  marina-cage:
+    name: marina-cage (Andaman RPM)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/terrapkg/builder:f44
+      options: --privileged
+    timeout-minutes: 60
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4
+
+      - name: Install RPM build tools
+        run: |
+          dnf install --assumeyes dnf-plugins-core git python3
+
+      - name: Install marina-cage build dependencies
+        run: |
+          dnf builddep --assumeyes packaging/rpm/marina-cage/marina-cage.spec
+
+      - name: Build marina-cage RPM with Andaman
+        run: |
+          anda build -rrpmbuild packaging/rpm/marina-cage
+
+      - name: Locate marina-cage artifacts
+        run: |
+          find anda-build -type f \
+            \( -name '*.rpm' -o -name '*.buildinfo' -o -name '*.src.rpm' \) \
+            -print 2>/dev/null || true
+
+      - name: Upload marina-cage RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: marina-cage-rpms-${{ github.sha }}
           if-no-files-found: error
           path: anda-build/

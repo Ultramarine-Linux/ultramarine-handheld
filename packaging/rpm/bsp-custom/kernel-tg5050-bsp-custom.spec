@@ -174,6 +174,7 @@ export PKG_CONFIG_PATH="%{kernel_pkgconfigpath}${PKG_CONFIG_PATH:+:${PKG_CONFIG_
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" pro3_defconfig
 scripts/config --file out/.config \
+    --enable USER_NS \
     --enable BLK_DEV_LOOP --enable SQUASHFS --enable SQUASHFS_ZSTD \
     --enable FS_POSIX_ACL --enable EXT4_FS_POSIX_ACL \
     --enable EXT4_FS_SECURITY --enable SECURITY \

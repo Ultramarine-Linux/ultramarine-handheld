@@ -7,27 +7,28 @@ for group in video render input audio; do
     getent group "$group" >/dev/null || groupadd --system "$group"
 done
 if ! id ultramarine >/dev/null 2>&1; then
-    useradd --create-home --uid 1000 --user-group \
+    useradd --home-dir /var/games/home --create-home --uid 1000 --user-group \
         --groups video,render,input,audio,wheel ultramarine
 fi
 usermod --append --groups video,render,input,audio,wheel ultramarine
-install -d -o ultramarine -g ultramarine -m 0700 /home/ultramarine
-cp -a /etc/skel/. /home/ultramarine/
-chown -R ultramarine:ultramarine /home/ultramarine
+usermod --home /var/games/home ultramarine
+install -d -o ultramarine -g ultramarine -m 0700 /var/games/home
+cp -a /etc/skel/. /var/games/home/
+chown -R ultramarine:ultramarine /var/games/home
 
 
 # The vendor display engine rejects AFBC-compressed KWin buffers.  Keep
 # Bigscreen on linear GBM buffers, as used by the validated Panfrost scanout
 # path.
 install -d -o ultramarine -g ultramarine -m 0755 \
-    /home/ultramarine/.config/plasma-workspace/env
-cat > /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh <<'EOF'
+    /var/games/home/.config/plasma-workspace/env
+cat > /var/games/home/.config/plasma-workspace/env/kwin-drm.sh <<'EOF'
 #!/bin/sh
 export KWIN_DRM_USE_MODIFIERS=0
 EOF
 chown ultramarine:ultramarine \
-    /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh
-chmod 0755 /home/ultramarine/.config/plasma-workspace/env/kwin-drm.sh
+    /var/games/home/.config/plasma-workspace/env/kwin-drm.sh
+chmod 0755 /var/games/home/.config/plasma-workspace/env/kwin-drm.sh
 
 # SSH StrictModes requires root-owned key material even when the overlay was
 # staged by an unprivileged build user.

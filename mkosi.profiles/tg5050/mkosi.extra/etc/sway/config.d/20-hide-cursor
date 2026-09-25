@@ -1,0 +1,4 @@
+# Gamepad-driven handheld: hide the pointer after 3s idle. It reappears on
+# real pointer movement (e.g. ports mapping sticks to mouse), so play is
+# unaffected while the Marina UI stays cursor-free.
+seat seat0 hide_cursor 3000
