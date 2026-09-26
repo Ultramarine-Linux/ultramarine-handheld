@@ -10,14 +10,10 @@ VARS="DESKTOP_SESSION XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE D
 export XDG_CURRENT_DESKTOP=sway
 export XDG_SESSION_TYPE=wayland
 
-# The system marina service owns the one compositor session on this appliance.
-# A failed previous start can leave the target active without a compositor;
-# clear that stale target before importing the new socket environment.
-if systemctl --user -q is-active "$SESSION_TARGET" 2>/dev/null; then
-    systemctl --user start --job-mode=replace-irreversibly "$SHUTDOWN_TARGET" || \
-        systemctl --user stop "$SESSION_TARGET" || true
-fi
-
+# The seed includes /etc/sway/config.d, so Fedora's session.sh may already
+# have started the session target. Never tear it down here: start is
+# idempotent, and the trap below still provides our deterministic shutdown
+# edge. reset-failed covers the failed-previous-start case.
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     # dbus-update-activation-environment also updates systemd's activation env.
     dbus-update-activation-environment --systemd $VARS || true

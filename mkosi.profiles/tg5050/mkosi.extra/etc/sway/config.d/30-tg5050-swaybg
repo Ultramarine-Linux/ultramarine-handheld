@@ -1,0 +1,5 @@
+# The wallpaper is owned by the swaybg.service user unit. Without this,
+# sway auto-spawns a bare swaybg per output (respawned on every reload).
+# Normally shadowed by the image-managed user session seed; this covers
+# the /etc fallback path.
+swaybg_command -

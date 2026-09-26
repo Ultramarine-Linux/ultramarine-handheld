@@ -42,3 +42,10 @@ chmod 0644 /etc/ssh/sshd_config.d/10-trimui-rescue.conf
 # NetworkManager refuses system keyfiles that retain the build user's ownership.
 chown root:root /etc/NetworkManager/system-connections/*.nmconnection
 chmod 0600 /etc/NetworkManager/system-connections/*.nmconnection
+
+# Drop every stock TuneD profile: the appliance only uses its own five
+# (balanced, balanced-battery, marina-minimal, powersave,
+# throughput-performance) from /etc/tuned/profiles, which shadow these paths
+# anyway. Our balanced-battery includes our own balanced, so no stock parent
+# is needed. This also re-applies on rebuilds when tuned updates restore them.
+rm -rf /usr/lib/tuned/profiles
