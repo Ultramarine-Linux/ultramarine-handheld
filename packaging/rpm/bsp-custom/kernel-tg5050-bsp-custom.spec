@@ -188,7 +188,8 @@ scripts/config --file out/.config \
     --enable KEYBOARD_GPIO \
     --enable AIC_WLAN_SUPPORT --module AIC8800_WLAN_SUPPORT \
     --module AIC8800_BTLPM_SUPPORT \
-    --module USBIP_CORE --module USBIP_VHCI_HCD
+    --module USBIP_CORE --module USBIP_VHCI_HCD \
+    --module UHID
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
@@ -240,6 +241,7 @@ fi
 %changelog
 * Sat Sep 26 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-9.tina.tg5050
 - Build USB/IP VHCI host-controller support as modules for USB device sharing.
+- Build UHID as a module for userspace virtual HID devices.
 * Tue Sep 15 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-1.acl.de1.panfrost
 - Build the boot-tested Tina A523 kernel and modules from pinned source tarballs.
 - Apply PWM alias and DE350 channel-mode compatibility patches.
