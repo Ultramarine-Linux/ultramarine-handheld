@@ -3,6 +3,7 @@ set dotenv-load := false
 profile := "tg5050"
 profile_dir := justfile_directory()
 project := profile_dir / "../.."
+base_dir := profile_dir / "../base"
 build_dir := project / "build"
 env_source := profile_dir / "board/trimui-linux-mainline.env"
 env_bsp_source := profile_dir / "board/trimui-linux-bsp.env"
@@ -52,7 +53,7 @@ bsp-sd-env:
 # carried by the p3 Android-style boot container, so p4 needs only the root.
 bsp-sd-rootfs: bsp-custom-rpms
     sudo rm -rf {{build_dir}}/ultramarine-rootfs
-    sudo mkosi --directory={{project}} --profile={{profile}},bsp \
+    sudo mkosi --directory={{project}} --profile=base,{{profile}},{{profile}}-bsp \
         --format=directory --output=ultramarine-rootfs \
         --output-directory={{build_dir}} --force
     test -x {{build_dir}}/ultramarine-rootfs/sbin/init
@@ -124,7 +125,7 @@ bsp-vendor-image: bsp-vendor-carrier bsp-sd-env bsp-sd-rootfs-image
 mainline-disk: env mainline-uboot
     #!/usr/bin/env bash
     set -euo pipefail
-    sudo mkosi --directory={{project}} --profile={{profile}},mainline --force
+    sudo mkosi --directory={{project}} --profile=base,{{profile}},{{profile}}-mainline --force
     image='{{build_dir}}/ultramarine-trimui-mainline.raw'
     {{profile_dir}}/image/prune-kernel-modules-initrd "$image"
     spl='{{build_dir}}/mainline-uboot-artifacts/sunxi-spl.bin'
@@ -152,7 +153,7 @@ mainline-uboot:
     {{profile_dir}}/image/stage-uboot-rpm {{quote(build_dir / "anda-rpms")}} {{quote(build_dir / "mainline-uboot-artifacts")}}
 
 systemd-initrd:
-    mkosi --directory={{profile_dir}}/systemd-initrd --force build
+    mkosi --directory={{base_dir}}/systemd-initrd --force build
 
 mainline-initramfs:
     {{profile_dir}}/board/mainline-initramfs/build
@@ -291,14 +292,14 @@ bootimg-reference:
 image: mainline-image
 
 summary:
-    mkosi --directory={{project}} --profile={{profile}},mainline summary
+    mkosi --directory={{project}} --profile=base,{{profile}},{{profile}}-mainline summary
 
 # Build the shared TG5050 userspace with the vendor BSP module overlay.
 bsp-rootfs-tree:
-    sudo mkosi --directory={{project}} --profile={{profile}},bsp --force
+    sudo mkosi --directory={{project}} --profile=base,{{profile}},{{profile}}-bsp --force
 
 # Build the fallback-preserving vendor-kernel image. This is intentionally a
 # separate artifact from mainline-image; it does not change the mainline
 # default or flash a target.
 bsp-image: bsp-env
-    sudo mkosi --directory={{project}} --profile={{profile}},bsp --force
+    sudo mkosi --directory={{project}} --profile=base,{{profile}},{{profile}}-bsp --force

@@ -1,6 +1,6 @@
 Name:           kernel-tg5050-bsp-custom
 Version:        5.15.147
-Release:        8.tina.tg5050%{?dist}
+Release:        9.tina.tg5050%{?dist}
 Summary:        custom vendor BSP kernel for TG5050
 License:        GPL-2.0-only
 URL:            https://gitlab.com/tina5.0_aiot/lichee/linux-5.15
@@ -187,7 +187,8 @@ scripts/config --file out/.config \
     --enable GPIO_SYSFS \
     --enable KEYBOARD_GPIO \
     --enable AIC_WLAN_SUPPORT --module AIC8800_WLAN_SUPPORT \
-    --module AIC8800_BTLPM_SUPPORT
+    --module AIC8800_BTLPM_SUPPORT \
+    --module USBIP_CORE --module USBIP_VHCI_HCD
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
     ARCH="$ARCH" CROSS_COMPILE="$CROSS_COMPILE" olddefconfig
 make O="$PWD/out" BSP_TOP="$BSP_TOP" KERNEL_SRC_DIR="$KERNEL_SRC_DIR" \
@@ -237,6 +238,8 @@ if [ -x %{_sbindir}/depmod ]; then
 fi
 
 %changelog
+* Sat Sep 26 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-9.tina.tg5050
+- Build USB/IP VHCI host-controller support as modules for USB device sharing.
 * Tue Sep 15 2026 Cappy Ishihara <cappy@fyralabs.com> - 5.15.147-1.acl.de1.panfrost
 - Build the boot-tested Tina A523 kernel and modules from pinned source tarballs.
 - Apply PWM alias and DE350 channel-mode compatibility patches.

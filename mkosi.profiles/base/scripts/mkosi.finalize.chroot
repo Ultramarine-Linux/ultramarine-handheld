@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+
+# mkosi applies distro presets before this final hook. Make service state
+# deterministic after every preset has had its say.
+systemctl enable wpa_supplicant.service
+# Fedora's sshd pulls in sshd-keygen.target on first service start, producing
+# a unique host identity on each flashed device.
+systemctl enable sshd.service
+systemctl enable systemd-resolved.service
+mkdir -p /etc/systemd/system/sysinit.target.wants
+ln -sfn /usr/lib/systemd/system/systemd-repart.service \
+    /etc/systemd/system/sysinit.target.wants/systemd-repart.service
+# Keep the user manager and D-Bus available while the graphical workloads are
+# frozen; this avoids creating a transient login session during wake/freeze.
+mkdir -p /var/lib/systemd/linger
+touch /var/lib/systemd/linger/ultramarine
+mkdir -p /var/lib/marina
+printf 'balanced\n' > /var/lib/marina/last-power-profile
+# Enable the Wayland OSD for the fixed ultramarine user session.
+systemctl --global enable awob.service
+systemctl disable ultramarine-kms-journal.service
+chmod 0755 /usr/libexec/marina-sway-session
+chmod 0644 /var/games/home/.config/sway/config
+
+# Fedora's stock kmscon units launch a login shell. Keep tty1 exclusively for
+# the autologin Sway/logind session.
+systemctl mask kmscon.service kmsconvt@.service
+# The system marina service owns tty1 and creates the PAM/logind seat for Sway.
+# Do not race it with an autologin getty or a compositor user service.
+systemctl mask getty@tty1.service
+systemctl enable marina-session.service
+systemctl mask NetworkManager-wait-online.service
+# This appliance is preconfigured; firstboot would wait for interactive input
+# that the handheld cannot provide during early bring-up.
+systemctl mask systemd-firstboot.service
+
+# systemd-resolved owns the dynamic resolver view.
+rm -f /etc/resolv.conf
+ln -s ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf

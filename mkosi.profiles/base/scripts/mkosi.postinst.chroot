@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+# The handheld has no practical interactive first-boot account setup. Create
+# the account used by the Sway appliance session while the image is being assembled.
+for group in video render input audio; do
+    getent group "$group" >/dev/null || groupadd --system "$group"
+done
+if ! id ultramarine >/dev/null 2>&1; then
+    useradd --home-dir /var/games/home --create-home --uid 1000 --user-group \
+        --groups video,render,input,audio,wheel ultramarine
+fi
+usermod --append --groups video,render,input,audio,wheel ultramarine
+usermod --home /var/games/home ultramarine
+install -d -o ultramarine -g ultramarine -m 0700 /var/games/home
+cp -a /etc/skel/. /var/games/home/
+chown -R ultramarine:ultramarine /var/games/home
+
+# SSH StrictModes requires root-owned key material even when the overlay was
+# staged by an unprivileged build user.
+chown root:root /root
+chmod 0700 /root
+install -d -o root -g root -m 0700 /root/.ssh
+
+# NetworkManager refuses system keyfiles that retain the build user's ownership.
+if compgen -G '/etc/NetworkManager/system-connections/*.nmconnection' > /dev/null; then
+    chown root:root /etc/NetworkManager/system-connections/*.nmconnection
+    chmod 0600 /etc/NetworkManager/system-connections/*.nmconnection
+fi

@@ -1,21 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# The handheld has no practical interactive first-boot account setup. Create
-# the account used by the Sway appliance session while the image is being assembled.
-for group in video render input audio; do
-    getent group "$group" >/dev/null || groupadd --system "$group"
-done
-if ! id ultramarine >/dev/null 2>&1; then
-    useradd --home-dir /var/games/home --create-home --uid 1000 --user-group \
-        --groups video,render,input,audio,wheel ultramarine
-fi
-usermod --append --groups video,render,input,audio,wheel ultramarine
-usermod --home /var/games/home ultramarine
-install -d -o ultramarine -g ultramarine -m 0700 /var/games/home
-cp -a /etc/skel/. /var/games/home/
-chown -R ultramarine:ultramarine /var/games/home
-
+# Board-specific account setup. The generic appliance user comes from the
+# base profile; this only handles TG5050 display and key material quirks.
 
 # The vendor display engine rejects AFBC-compressed KWin buffers.  Keep
 # Bigscreen on linear GBM buffers, as used by the validated Panfrost scanout
@@ -32,16 +19,9 @@ chmod 0755 /var/games/home/.config/plasma-workspace/env/kwin-drm.sh
 
 # SSH StrictModes requires root-owned key material even when the overlay was
 # staged by an unprivileged build user.
-chown root:root /root
-chmod 0700 /root
-install -d -o root -g root -m 0700 /root/.ssh
 chown root:root /root/.ssh/authorized_keys
 chmod 0600 /root/.ssh/authorized_keys
 chmod 0644 /etc/ssh/sshd_config.d/10-trimui-rescue.conf
-
-# NetworkManager refuses system keyfiles that retain the build user's ownership.
-chown root:root /etc/NetworkManager/system-connections/*.nmconnection
-chmod 0600 /etc/NetworkManager/system-connections/*.nmconnection
 
 # Drop every stock TuneD profile: the appliance only uses its own five
 # (balanced, balanced-battery, marina-minimal, powersave,
